@@ -31,7 +31,7 @@ This project explores cloud portability and vendor lock-in by deploying identica
 6. [Development](#6-development)  
    6.1 [Development Environment](#61-development-environment)  
    6.2 [Development Reference Documentation](#62-development-reference-documentation)  
-   6.3 [Lab Notes](#63-lab-notes)  
+   6.3 [Lab Notes](#63-setup)  
 
 ---
 
@@ -282,19 +282,19 @@ Reference documentation used during development:
 ### OpenTofu
 #### OpenTofu Installation
 These steps were used to install OpenTofu on the gHost running Ubuntu 24.04.3 LTS.
-1.) Download the installer script:
+1. Download the installer script:
   ```bash
   curl -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh
   ```
-2.) Grant execute permissions and review the script:
+2. Grant execute permissions and review the script:
   ```bash
   chmod +x install-opentofu.sh && less install-opentofu.sh
   ```
-3.) Install using the script:
+3. Install using the script:
   ```bash
   ./install-opentofu.sh --install-method standalone
   ```
-4.) Check that OpenTofu is installed:
+4. Check that OpenTofu is installed:
   ```bash
   tofu version
   ```
@@ -302,7 +302,7 @@ These steps were used to install OpenTofu on the gHost running Ubuntu 24.04.3 LT
   OpenTofu v1.11.4
   on linux_amd64
   ```
-5.) Remove the installer:
+5. Remove the installer:
   ```bash
   rm -f install-opentofu.sh
   ```
@@ -427,32 +427,32 @@ Google accounts must be used for GCP, so I created an account using my OHIO cred
 
 #### Install GCP CLI
 OpenTofu's Google provider can authenticate using the Google Cloud CLI (gcloud). I installed it with the following steps.
-1.) Install required packages:
+1. Install required packages:
 ```bash
 sudo apt-get update
 sudo apt-get install ca-certificates gnupg curl
 ```
-2.) Import the Google Cloud public key:
+2. Import the Google Cloud public key:
 ```bash
 curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
 ```
-3.) Add the gcloud CLI distribution URI as a package source:
+3. Add the gcloud CLI distribution URI as a package source:
 ```bash
 echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
 ```
-4.) Update and install the gcloud CLI:
+4. Update and install the gcloud CLI:
 ```bash
 sudo apt-get update && sudo apt-get install google-cloud-cli
 ```
 
 #### Initialize and authorize the gcloud CLI
-1.) You need a project to initialize the gcloud CLI. One is already created called `my first project` but I used the web interface to change the name to `Cloud Portability Experiment`.
-2.) Run the following to initialize the gcloud CLI:
+1. You need a project to initialize the gcloud CLI. One is already created called `my first project` but I used the web interface to change the name to `Cloud Portability Experiment`.
+2. Run the following to initialize the gcloud CLI:
 ```bash
 gcloud init
 ```
-3.) Follow the prompts to authorize and configure, making sure to select your project.
-4.) Check the login worked:
+3. Follow the prompts to authorize and configure, making sure to select your project.
+4. Check the login worked:
 ```bash
 gcloud config list
 ```
