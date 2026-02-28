@@ -7,31 +7,63 @@ This project explores cloud portability and vendor lock-in by deploying identica
 
 # Table of Contents
 
-1. [Overview](#overview)  
-   1.1 [Project Goals](#11-project-goals)  
-   1.2 [Non-Goals](#12-non-goals)  
-   1.3 [Future Work](#13-future-work)  
+1. [Overview](#1-overview)
+   - [1.1 Project Goals](#11-project-goals)
+      - [Primary Goal](#primary-goal)
+      - [Secondary Goals](#secondary-goals)
+   - [1.2 Non-Goals](#12-non-goals)
+   - [1.3 Future Work](#13-future-work)
 
-2. [Tooling](#2-tooling)  
-   2.1 [Infrastructure Provisioning](#21-infrastructure-provisioning)  
-   2.2 [Configuration Management](#22-configuration-management)  
-   2.3 [Chosen Application](#23-chosen-application)  
+2. [Tooling](#2-tooling)
+   - [2.1 Infrastructure Provisioning](#21-infrastructure-provisioning)
+      - [Why OpenTofu](#why-opentofu)
+   - [2.2 Configuration Management](#22-configuration-management)
+      - [Why Ansible](#why-ansible)
+   - [2.3 Chosen Application](#23-chosen-application)
 
-3. [Architecture](#3-architecture)  
-   3.1 [High-Level Design](#31-high-level-design)  
-   3.2 [Multi-Cloud Strategy](#32-multi-cloud-strategy)  
-   3.3 [3-Tier Breakdown](#33-3-tier-breakdown)  
-   3.4 [DNS Design](#34-dns-design)  
-   3.5 [Architecture Diagram](#35-architecture-diagram)  
+3. [Architecture](#3-architecture)
+   - [3.1 High-Level Design](#31-high-level-design)
+   - [3.2 Multi-Cloud Strategy](#32-multi-cloud-strategy)
+   - [3.3 3-Tier Breakdown](#33-3-tier-breakdown)
+      - [Frontend Tier](#frontend-tier)
+      - [Backend Tier](#backend-tier)
+      - [Database Tier](#database-tier)
+   - [3.4 DNS Design](#34-dns-design)
+   - [3.5 Architecture Diagram](#35-architecture-diagram)
 
-4. [Repository Structure](#4-repository-structure)  
+4. [Repository Structure](#4-repository-structure)
 
-5. [Deployment Workflow](#5-deployment-workflow)  
+5. [Deployment Workflow](#5-deployment-workflow)
 
-6. [Development](#6-development)  
-   6.1 [Development Environment](#61-development-environment)  
-   6.2 [Development Reference Documentation](#62-development-reference-documentation)  
-   6.3 [Lab Notes](#63-setup)  
+6. [Development](#6-development)
+   - [6.1 Development Environment](#61-development-environment)
+   - [6.2 Development Reference Documentation](#62-development-reference-documentation)
+   - [6.3 Setup](#63-setup)
+      - [OpenTofu](#opentofu)
+         - [OpenTofu Installation](#opentofu-installation)
+         - [Autocomplete](#autocomplete)
+      - [Ansible](#ansible)
+         - [Ansible Installation](#ansible-installation)
+      - [SSH Key](#ssh-key)
+         - [Generate the SSH Key](#generate-the-ssh-key)
+         - [Start the SSH Agent](#start-the-ssh-agent)
+         - [Add the SSH Key to the Agent](#add-the-ssh-key-to-the-agent)
+         - [Verify the Key is Loaded](#verify-the-key-is-loaded)
+         - [Start SSH Agent Automatically on Login](#start-ssh-agent-automatically-on-login)
+      - [Azure](#azure)
+         - [Student Azure Account](#student-azure-account)
+         - [Install Azure CLI](#install-azure-cli)
+         - [Log in to Azure](#log-in-to-azure)
+         - [Select the Correct Azure Subscription](#select-the-correct-azure-subscription)
+      - [Google Cloud](#google-cloud)
+         - [GCP Account](#gcp-account)
+         - [Install GCP CLI](#install-gcp-cli)
+         - [Initialize and authorize the gcloud CLI](#initialize-and-authorize-the-gcloud-cli)
+         - [Enable Application Default Credentials](#enable-application-default-credentials)
+      - [Amazon Web Services](#amazon-web-services)
+         - [AWS Account](#aws-account)
+         - [Install AWS CLI](#install-aws-cli)
+         - [Login and Configure AWS CLI](#login-and-configure-aws-cli)
 
 ---
 
@@ -270,11 +302,14 @@ All provisioning and configuration commands are executed from this control envir
 
 Reference documentation used during development:
 
-- OpenTofu documentation  
+- [OpenTofu documentation](https://opentofu.org/docs/)
 - Ansible documentation  
-- AWS provider documentation  
-- Azure provider documentation  
-- GCP provider documentation  
+- AWS provider documentation
+- [AWS CLI installation documentation](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+- Azure provider documentation
+- [Azure CLI installation documentation](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-linux?view=azure-cli-latest&pivots=apt)
+- GCP provider documentation
+- [GCP CLI installation docs](https://docs.cloud.google.com/sdk/docs/install-sdk#deb)
 - Rocket.Chat installation documentation  
 - MongoDB installation documentation  
 
@@ -392,11 +427,12 @@ EOF
 - If not, it starts the agent and loads your key
 
 ### Azure
+The `azurerm` provider will automatically use the active Azure CLI login context.
 #### Student Azure Account
 Azure has a student subscription with $100 of credits. I created a student account using my OHIO credentials.
 
 #### Install Azure CLI
-OpenTofu’s AzureRM provider authenticates using the Azure CLI, not the Azure PowerShell (Az) module. The Azure CLI must be installed and available. I installed it with:
+OpenTofu’s `azurerm` provider authenticates using the Azure CLI, not the Azure PowerShell (Az) module. The Azure CLI must be installed and available. I installed it with:
 ```bash
 curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 ```
@@ -404,6 +440,7 @@ After installation, restart the shell, then verify:
 ```bash
 az version
 ```
+[Azure CLI installation documentation.](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-linux?view=azure-cli-latest&pivots=apt)
 
 #### Log in to Azure
 If you are not logged in, authenticate with:
@@ -413,20 +450,21 @@ az login
 
 #### Select the Correct Azure Subscription
 If you have access to multiple subscriptions, ensure the correct one is selected:
-```powershell
+```bash
 az account set --subscription 00000000-0000-0000-0000-000000000000
 ```
 You can confirm the active subscription again with:
-```powershell
+```bash
 az account show
 ```
 
 ### Google Cloud
+The `google` provider will automatically use the Application Default Credentials generated below.
 #### GCP Account
 Google accounts must be used for GCP, so I created an account using my OHIO credentials. The free trial gave me $300 free credit, but I did have to put a card on file.
 
 #### Install GCP CLI
-OpenTofu's Google provider can authenticate using the Google Cloud CLI (gcloud). I installed it with the following steps.
+OpenTofu's `google` provider can authenticate using the Google Cloud CLI (gcloud). I installed it with the following steps.
 1. Install required packages:
 ```bash
 sudo apt-get update
@@ -444,9 +482,10 @@ echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.clou
 ```bash
 sudo apt-get update && sudo apt-get install google-cloud-cli
 ```
+[GCP CLI installation documentation.](https://docs.cloud.google.com/sdk/docs/install-sdk#deb)
 
 #### Initialize and authorize the gcloud CLI
-1. You need a project to initialize the gcloud CLI. One is already created called `my first project` but I used the web interface to change the name to `Cloud Portability Experiment`.
+1. You need a project to initialize the gcloud CLI. A default project is automatically created, but I renamed it via the web console to `Cloud Portability Experiment` for clarity.
 2. Run the following to initialize the gcloud CLI:
 ```bash
 gcloud init
@@ -457,5 +496,63 @@ gcloud init
 gcloud config list
 ```
 
+#### Enable Application Default Credentials
+The OpenTofu `google` provider uses ADC. Enable them with:
+```bash
+gcloud auth application-default login
+```
+This stores credentials locally in:
+```bash
+~/.config/gcloud/application_default_credentials.json
+```
+The provider will automatically use these credentials.
+You can verify authentication with:
+```bash
+gcloud auth list
+```
+At this point, OpenTofu can authenticate to GCP using your logged-in CLI context.
+
 ### Amazon Web Services
+The `aws` provider automatically reads credentials from the AWS CLI configuration files.
 #### AWS Account
+AWS offers a free tier for new accounts. I created an AWS account dedicated to this experiment with my OHIO credentials and enabled the free tier.
+
+#### Install AWS CLI
+To install AWS, use the following commands:
+```bash
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+```
+Verify installation:
+```bash
+aws --version
+```
+[AWS CLI installation docs](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+
+#### Login and Configure AWS CLI
+AWS does not use an interactive browser login like Azure or GCP for automation. Instead, credentials are configured locally. From the AWS Console:
+1. Go to IAM → Users
+2. Create a user
+3. Attach `AdministratorAccess` policy (for lab simplicity)
+4. After creation, generate an Access Key for the user
+5. Copy the Access Key ID and Secret Access Key
+Then configure locally:
+```bash
+aws configure
+```
+Provide:
+- Access Key ID
+- Secret Access Key
+- Default region (e.g., `us-east-2`)
+- Output format (json)
+This creates:
+```bash
+~/.aws/credentials
+~/.aws/config
+```
+The OpenTofu `aws` provider automatically reads from these files. You can verify authentication with:
+```bash
+aws sts get-caller-identity
+```
+If successful, it will return your account and user ARN. At this point, OpenTofu can authenticate to AWS.
