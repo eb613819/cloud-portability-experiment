@@ -7,18 +7,17 @@ This project explores cloud portability and vendor lock-in by deploying identica
 
 # Table of Contents
 
-1. [Overview](#1-overview)
+1. [Overview](#overview)
    - [1.1 Project Goals](#11-project-goals)
       - [Primary Goal](#primary-goal)
       - [Secondary Goals](#secondary-goals)
    - [1.2 Non-Goals](#12-non-goals)
    - [1.3 Future Work](#13-future-work)
+      - [Cross-Cloud MongoDB Replica Set](#cross-cloud-mongodb-replica-set)
 
 2. [Tooling](#2-tooling)
    - [2.1 Infrastructure Provisioning](#21-infrastructure-provisioning)
-      - [Why OpenTofu](#why-opentofu)
    - [2.2 Configuration Management](#22-configuration-management)
-      - [Why Ansible](#why-ansible)
    - [2.3 Chosen Application](#23-chosen-application)
 
 3. [Architecture](#3-architecture)
