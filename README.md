@@ -64,7 +64,26 @@ This project explores cloud portability and vendor lock-in by deploying identica
          - [AWS Account](#aws-account)
          - [Install AWS CLI](#install-aws-cli)
          - [Login and Configure AWS CLI](#login-and-configure-aws-cli)
-
+   - [6.4 Provider-Native Single VM Deployment (No Abstraction)](#64-provider-native-single-vm-deployment-no-abstraction)  
+      - [Directory Structure](#directory-structure)  
+      - [Provider Configuration](#provider-configuration)  
+         - [Azure](#azure-1)  
+         - [AWS](#aws)  
+         - [GCP](#gcp)  
+      - [Networking Layer](#networking-layer)  
+         - [Azure](#azure-2)  
+         - [AWS](#aws-1)  
+         - [GCP](#gcp-1)  
+      - [Public IP Allocation](#public-ip-allocation)  
+      - [Security Model (SSH Access)](#security-model-ssh-access)  
+         - [Azure](#azure-3)  
+         - [AWS](#aws-2)  
+         - [GCP](#gcp-2)  
+      - [SSH Key Injection](#ssh-key-injection)  
+      - [Virtual Machine Resource](#virtual-machine-resource)  
+      - [Deployment Lifecycle (Identical Across Providers)](#deployment-lifecycle-identical-across-providers)  
+      - [Comparative Observations](#comparative-observations)
+        
 ---
 
 # Overview
@@ -562,7 +581,7 @@ If successful, it will return your account and user ARN. At this point, OpenTofu
 
 ## 6.4 Provider-Native Single VM Deployment (No Abstraction)
 
-Before introducing any abstraction or modularization, each cloud provider was implemented independently using a fully provider-native OpenTofu configuration. Each provider has its own `main.tf`, with no shared modules or variables.
+Before attempting to design a provider-agnostic module structure, it was necessary to understand how each provider models core infrastructure primitives. Each cloud provider was implemented independently using a fully provider-native OpenTofu configuration. Each provider has its own `main.tf`, with no shared modules or variables.
 
 The goal of this phase was to:
 - Create the closest possible equivalent infrastructure in Azure, AWS, and GCP
