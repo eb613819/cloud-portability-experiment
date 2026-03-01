@@ -560,4 +560,209 @@ aws sts get-caller-identity
 ```
 If successful, it will return your account and user ARN. At this point, OpenTofu can authenticate to AWS.
 
-## 6.4
+## 6.4 Provider-Native Single VM Deployment (No Abstraction)
+
+Before introducing any abstraction or modularization, each cloud provider was implemented independently using a fully provider-native OpenTofu configuration. Each provider has its own `main.tf`, with no shared modules or variables.
+
+The goal of this phase was to:
+- Create the closest possible equivalent infrastructure in Azure, AWS, and GCP
+- Understand provider-specific networking requirements
+- Validate SSH access using the same public key
+- Observe structural differences before abstraction
+
+### Directory Structure
+
+The provider-native configurations are located in:
+```bash
+sandbox/
+   └── one_vm_hardcode/
+       ├── az/
+       │   └── main.tf
+       ├── aws/
+       │   └── main.tf
+       └── gcp/
+           └── main.tf
+```
+Each directory contains a standalone `main.tf` capable of provisioning:
+- A virtual network
+- A subnet
+- Public internet access
+- SSH access (port 22 open)
+- A single Ubuntu 24.04 VM
+- An output exposing the public IP and SSH command
+
+### Provider Configuration
+
+Each provider requires a different initialization model:
+
+#### Azure
+- Requires `azurerm` provider
+- Requires a resource group
+- Region defined via resource group location
+   - Using `northcentralus`
+
+#### AWS
+- Requires `aws` provider
+- Region defined directly in provider block
+   - Using `us-east-2`
+
+#### GCP
+- Requires `google` provider
+- Requires project
+- Region and zone defined directly in provider block
+   - Using `us-central1` and `us-central1-a` 
+
+#### **Key Differences**:  
+- Azure introduces a mandatory resource group abstraction.  
+- GCP requires explicit project and zone.  
+- AWS only requires a region.
+
+### Networking Layer
+All three providers create a network with CIDR `10.0.0.0/16` and a subnet `10.0.1.0/24`, but the structure differs significantly.
+
+#### Azure
+- `azurerm_virtual_network`
+- `azurerm_subnet`
+- Explicit `azurerm_network_interface`
+- Explicit NSG association to NIC
+
+Azure requires more explicit wiring between components.
+
+#### AWS
+- `aws_vpc`
+- `aws_subnet`
+- Internet Gateway
+- Route Table
+- Route Table Association
+
+AWS requires explicit routing configuration for internet access.
+
+#### GCP
+- `google_compute_network`
+- `google_compute_subnetwork`
+- Firewall rule
+
+GCP does not require route tables for basic internet access.
+
+#### **Key Differences**:
+
+| Concept | Azure | AWS | GCP |
+|----------|--------|--------|--------|
+| Network object | Virtual Network | VPC | VPC Network |
+| Subnet | Explicit | Explicit | Explicit |
+| Internet routing | Implicit via public IP | Requires IGW + route table | Implicit |
+| NIC object | Required | Implicit in instance | Implicit in instance |
+
+- Azure requires the most explicit network wiring.  
+- AWS requires explicit routing configuration.  
+- GCP is the most minimal.
+
+### Public IP Allocation
+
+Each provider provisions a static public IP.
+
+- Azure: `azurerm_public_ip`
+- AWS: Public IP auto-associated to instance
+- GCP: `google_compute_address` (static IP resource)
+
+**Key Difference:**
+- Azure and GCP treat public IP as a standalone resource.  
+- AWS attaches public IP directly to the instance.
+
+### Security Model (SSH Access)
+
+All three configurations open TCP port 22 to `0.0.0.0/0`.
+
+#### Azure
+- `azurerm_network_security_group`
+- Associated to NIC
+
+#### AWS
+- `aws_security_group`
+- Attached directly to instance
+
+#### GCP
+- `google_compute_firewall`
+- Applied at network level
+
+#### **Key Differences**:
+
+- Azure attaches security at the NIC level.  
+- AWS attaches security at the instance level.  
+- GCP applies firewall rules at the network level.
+
+This reflects fundamentally different security boundary models.
+
+### SSH Key Injection
+All three use the same public key:
+```bash
+~/.ssh/id_ed25519.pub
+```
+Which can be referenced directly in the `main.tf` using:
+```hcl
+file("~/.ssh/id_ed25519.pub")
+```
+However, injection differs:
+- Azure: `admin_ssh_key` block inside VM resource
+- AWS: `aws_key_pair` resource + reference in instance
+- GCP: `metadata` field using `ssh-keys`
+
+**Key Differences**:
+- Azure embeds the key inside the VM resource.  
+- AWS requires registering the key separately.  
+- GCP injects the key via instance metadata.
+
+### Virtual Machine Resource
+
+Each provider provisions an Ubuntu 24.04 VM:
+
+| Provider | Resource Type | Machine Type |
+|----------|---------------|--------------|
+| Azure | `azurerm_linux_virtual_machine` | Standard_B2pts_v2 |
+| AWS | `aws_instance` | t3.micro |
+| GCP | `google_compute_instance` | e2-small |
+
+All:
+- Disable password authentication
+- Use SSH key authentication
+- Output public IP
+- Output SSH command
+
+Despite similar outcomes, the schema and required surrounding infrastructure differ significantly.
+
+### Deployment Lifecycle (Identical Across Providers)
+
+Although infrastructure structure differs, the OpenTofu workflow remains identical.
+
+From within each provider directory:
+```bash
+tofu init
+tofu validate
+tofu plan
+tofu apply
+```
+After apply completes:
+```bash
+ssh ubuntu@<public-ip>
+```
+To clean up:
+```bash
+tofu destroy
+```
+**Key Insight**:
+
+The infrastructure models differ greatly.  
+The deployment lifecycle does not.
+
+This demonstrates that OpenTofu abstracts the provisioning workflow, but not the provider-specific infrastructure design.
+
+### Comparative Observations
+
+1. Azure requires the most explicit component wiring.
+2. AWS requires the most explicit internet routing configuration.
+3. GCP requires the least structural configuration.
+4. Security boundaries differ fundamentally across providers.
+5. SSH key handling varies significantly.
+6. The OpenTofu execution model remains identical.
+
+This highlights that infrastructure portability requires conceptual alignment, not identical resource blocks. While the outcome (a publicly accessible Ubuntu VM) is the same, the structural path to achieving that outcome differs meaningfully across providers.
