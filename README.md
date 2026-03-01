@@ -59,6 +59,7 @@ This project explores cloud portability and vendor lock-in by deploying identica
          - [Install GCP CLI](#install-gcp-cli)
          - [Initialize and authorize the gcloud CLI](#initialize-and-authorize-the-gcloud-cli)
          - [Enable Application Default Credentials](#enable-application-default-credentials)
+         - [Enable Compute Engine API](#enable-compute-engine-api)
       - [Amazon Web Services](#amazon-web-services)
          - [AWS Account](#aws-account)
          - [Install AWS CLI](#install-aws-cli)
@@ -511,6 +512,9 @@ gcloud auth list
 ```
 At this point, OpenTofu can authenticate to GCP using your logged-in CLI context.
 
+#### Enable Compute Engine API
+In order to create and run virtual machines, the `Compute Engine API` needs to be enabled in the project. This can be done from the Google Cloud Console.
+
 ### Amazon Web Services
 The `aws` provider automatically reads credentials from the AWS CLI configuration files.
 #### AWS Account
@@ -555,3 +559,5 @@ The OpenTofu `aws` provider automatically reads from these files. You can verify
 aws sts get-caller-identity
 ```
 If successful, it will return your account and user ARN. At this point, OpenTofu can authenticate to AWS.
+
+## 6.4
