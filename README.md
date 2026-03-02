@@ -788,3 +788,44 @@ This demonstrates that OpenTofu abstracts the provisioning workflow, but not the
 This highlights that infrastructure portability requires conceptual alignment, not identical resource blocks. While the outcome (a publicly accessible Ubuntu VM) is the same, the structural path to achieving that outcome differs meaningfully across providers.
 
 # 8 Cloud-Agnostic Deployment of a Single VM
+[Section 7](#7-provider-native-single-vm-deployment-no-abstraction) established independent, provider-native implementations of a single virtual machine in AWS, Azure, and GCP. Although each configuration produced a functionally equivalent result, the underlying resource models, networking constructs, security boundaries, and identity mechanisms differed significantly. These differences mean that infrastructure portability cannot be achieved by unifying resource blocks into a single `main.tf`. The providers do not share a sufficiently aligned abstraction layer to make direct resource-level reuse practical.
+
+Instead, portability must be defined at a higher level. Rather than abstracting provider syntax, this section introduces a cloud-neutral interface that expresses architectural intent. Provider-specific modules then act as adapters, translating that intent into native OpenTofu resource definitions. This layered approach preserves behavioral consistency while respecting structural differences between providers.
+
+## 8.1 Motivation for a Unified Interface
+[Section 7](#7-provider-native-single-vm-deployment-no-abstraction) demonstrated that deploying a functionally equivalent virtual machine across AWS, Azure, and GCP requires substantially different resource models, networking constructs, security configurations, and identity mechanisms. Although the end result was functionally equivalent, the internal structures of each provider differed in ways that are not syntactically or semantically aligned.
+
+These structural differences make portability at the resource-definition level impractical. Consolidating all providers into a single `main.tf` would require extensive conditional logic, provider-specific branching, and deeply nested abstractions. Such an approach would obscure native semantics, reduce readability, and ultimately create a configuration that is difficult to reason about or maintain.
+
+Rather than forcing uniformity at the resource layer, portability must instead be achieved at a higher level of abstraction. This section proposes a cloud-neutral interface that sits above provider-specific implementations. The interface expresses architectural intent through a shared set of inputs and outputs, while individual provider modules act as adapters that translate those inputs into native OpenTofu resource definitions.
+
+In this approach, portability does not come from forcing all providers to look the same. Instead, it comes from defining a consistent interface at the top level, while allowing each provider to implement resources in its own way. The provider modules remain native and structurally correct, but the user interacts with a single, consistent set of inputs and outputs.
+
+## 8.2 Repository Structure
+To implement this layered abstraction, the project repository was reorganized to reflect a clear separation between the cloud-neutral interface and provider-specific implementations.
+
+The directory structure for the single cloud-agnostic virtual machine deployment is shown below:
+```bash
+sandbox/one_vm_agnostic/
+├── main.tf
+├── variables.tf
+├── outputs.tf
+└── modules/
+    ├── aws/
+    │   └── main.tf
+    ├── azure/
+    │   └── main.tf
+    └── gcp/
+        └── main.tf
+```
+The root module (`one_vm_agnostic/`) defines the portable interface. It declares input variables, expected outputs, and module invocations. This layer contains no provider-specific resource definitions.
+
+The `modules/` directory contains independent implementations for each cloud provider. Each provider module translates the cloud-neutral inputs into native OpenTofu resource blocks appropriate for that platform. No cross-provider conditionals exist within these modules; each implementation remains structurally aligned with its respective provider’s resource model.
+This structure enforces a clean architectural boundary:
+- The root module defines intent.
+- Provider modules define implementation.
+- Portability is achieved through interface stability rather than resource homogenization.
+
+## 8.2 Portable Interface
+
+## 8.3 Provider-specific Modules
