@@ -64,26 +64,27 @@ This project explores cloud portability and vendor lock-in by deploying identica
          - [AWS Account](#aws-account)
          - [Install AWS CLI](#install-aws-cli)
          - [Login and Configure AWS CLI](#login-and-configure-aws-cli)
-   - [6.4 Provider-Native Single VM Deployment (No Abstraction)](#64-provider-native-single-vm-deployment-no-abstraction)  
-      - [Directory Structure](#directory-structure)  
-      - [Provider Configuration](#provider-configuration)  
-         - [Azure](#azure-1)  
-         - [AWS](#aws)  
-         - [GCP](#gcp)  
-      - [Networking Layer](#networking-layer)  
-         - [Azure](#azure-2)  
-         - [AWS](#aws-1)  
-         - [GCP](#gcp-1)  
-      - [Public IP Allocation](#public-ip-allocation)  
-      - [Security Model (SSH Access)](#security-model-ssh-access)  
-         - [Azure](#azure-3)  
-         - [AWS](#aws-2)  
-         - [GCP](#gcp-2)  
-      - [SSH Key Injection](#ssh-key-injection)  
-      - [Virtual Machine Resource](#virtual-machine-resource)  
-      - [Deployment Lifecycle (Identical Across Providers)](#deployment-lifecycle-identical-across-providers)  
-      - [Comparative Observations](#comparative-observations)
-        
+- [7 Provider-Native Single VM Deployment (No Abstraction)](#7-provider-native-single-vm-deployment-no-abstraction)  
+   - [7.1 Directory Structure](#71-directory-structure)  
+   - [7.2 Provider Configuration](#72-provider-configuration)  
+      - [Azure](#azure-1)  
+      - [AWS](#aws)  
+      - [GCP](#gcp)  
+   - [7.3 Networking Layer](#73-networking-layer)  
+      - [Azure](#azure-2)  
+      - [AWS](#aws-1)  
+      - [GCP](#gcp-1)  
+   - [7.4 Public IP Allocation](#74-public-ip-allocation)  
+   - [7.5 Security Model (SSH Access)](#75-security-model-ssh-access)  
+      - [Azure](#azure-3)  
+      - [AWS](#aws-2)  
+      - [GCP](#gcp-2)  
+   - [7.6 SSH Key Injection](#76-ssh-key-injection)  
+   - [7.7 Virtual Machine Resource](#77-virtual-machine-resource)  
+   - [7.8 Deployment Lifecycle (Identical Across Providers)](#78-deployment-lifecycle-identical-across-providers)  
+   - [7.9 Comparative Observations](#79-comparative-observations)
+- [8 Cloud-Agnostic Deployment of a Single VM](#8-cloud-agnostic-deployment-of-a-single-vm)
+    
 ---
 
 # Overview
@@ -579,7 +580,7 @@ aws sts get-caller-identity
 ```
 If successful, it will return your account and user ARN. At this point, OpenTofu can authenticate to AWS.
 
-## 6.4 Provider-Native Single VM Deployment (No Abstraction)
+# 7 Provider-Native Single VM Deployment (No Abstraction)
 
 Before attempting to design a provider-agnostic module structure, it was necessary to understand how each provider models core infrastructure primitives. Each cloud provider was implemented independently using a fully provider-native OpenTofu configuration. Each provider has its own `main.tf`, with no shared modules or variables.
 
@@ -589,7 +590,7 @@ The goal of this phase was to:
 - Validate SSH access using the same public key
 - Observe structural differences before abstraction
 
-### Directory Structure
+## 7.1 Directory Structure
 
 The provider-native configurations are located in:
 ```bash
@@ -610,36 +611,36 @@ Each directory contains a standalone `main.tf` capable of provisioning:
 - A single Ubuntu 24.04 VM
 - An output exposing the public IP and SSH command
 
-### Provider Configuration
+## 7.2 Provider Configuration
 
 Each provider requires a different initialization model:
 
-#### Azure
+### Azure
 - Requires `azurerm` provider
 - Requires a resource group
 - Region defined via resource group location
    - Using `northcentralus`
 
-#### AWS
+### AWS
 - Requires `aws` provider
 - Region defined directly in provider block
    - Using `us-east-2`
 
-#### GCP
+### GCP
 - Requires `google` provider
 - Requires project
 - Region and zone defined directly in provider block
    - Using `us-central1` and `us-central1-a` 
 
-#### **Key Differences**:  
+### **Key Differences**:  
 - Azure introduces a mandatory resource group abstraction.  
 - GCP requires explicit project and zone.  
 - AWS only requires a region.
 
-### Networking Layer
+## 7.3 Networking Layer
 All three providers create a network with CIDR `10.0.0.0/16` and a subnet `10.0.1.0/24`, but the structure differs significantly.
 
-#### Azure
+### Azure
 - `azurerm_virtual_network`
 - `azurerm_subnet`
 - Explicit `azurerm_network_interface`
@@ -647,7 +648,7 @@ All three providers create a network with CIDR `10.0.0.0/16` and a subnet `10.0.
 
 Azure requires more explicit wiring between components.
 
-#### AWS
+### AWS
 - `aws_vpc`
 - `aws_subnet`
 - Internet Gateway
@@ -656,14 +657,14 @@ Azure requires more explicit wiring between components.
 
 AWS requires explicit routing configuration for internet access.
 
-#### GCP
+### GCP
 - `google_compute_network`
 - `google_compute_subnetwork`
 - Firewall rule
 
 GCP does not require route tables for basic internet access.
 
-#### **Key Differences**:
+### **Key Differences**:
 
 | Concept | Azure | AWS | GCP |
 |----------|--------|--------|--------|
@@ -676,7 +677,7 @@ GCP does not require route tables for basic internet access.
 - AWS requires explicit routing configuration.  
 - GCP is the most minimal.
 
-### Public IP Allocation
+## 7.4 Public IP Allocation
 
 Each provider provisions a static public IP.
 
@@ -688,23 +689,23 @@ Each provider provisions a static public IP.
 - Azure and GCP treat public IP as a standalone resource.  
 - AWS attaches public IP directly to the instance.
 
-### Security Model (SSH Access)
+## 7.5 Security Model (SSH Access)
 
 All three configurations open TCP port 22 to `0.0.0.0/0`.
 
-#### Azure
+### Azure
 - `azurerm_network_security_group`
 - Associated to NIC
 
-#### AWS
+### AWS
 - `aws_security_group`
 - Attached directly to instance
 
-#### GCP
+### GCP
 - `google_compute_firewall`
 - Applied at network level
 
-#### **Key Differences**:
+### **Key Differences**:
 
 - Azure attaches security at the NIC level.  
 - AWS attaches security at the instance level.  
@@ -712,7 +713,7 @@ All three configurations open TCP port 22 to `0.0.0.0/0`.
 
 This reflects fundamentally different security boundary models.
 
-### SSH Key Injection
+## 7.6 SSH Key Injection
 All three use the same public key:
 ```bash
 ~/.ssh/id_ed25519.pub
@@ -731,7 +732,7 @@ However, injection differs:
 - AWS requires registering the key separately.  
 - GCP injects the key via instance metadata.
 
-### Virtual Machine Resource
+## 7.7 Virtual Machine Resource
 
 Each provider provisions an Ubuntu 24.04 VM:
 
@@ -749,7 +750,7 @@ All:
 
 Despite similar outcomes, the schema and required surrounding infrastructure differ significantly.
 
-### Deployment Lifecycle (Identical Across Providers)
+## 7.8 Deployment Lifecycle (Identical Across Providers)
 
 Although infrastructure structure differs, the OpenTofu workflow remains identical.
 
@@ -775,7 +776,7 @@ The deployment lifecycle does not.
 
 This demonstrates that OpenTofu abstracts the provisioning workflow, but not the provider-specific infrastructure design.
 
-### Comparative Observations
+## 7.9 Comparative Observations
 
 1. Azure requires the most explicit component wiring.
 2. AWS requires the most explicit internet routing configuration.
@@ -785,3 +786,5 @@ This demonstrates that OpenTofu abstracts the provisioning workflow, but not the
 6. The OpenTofu execution model remains identical.
 
 This highlights that infrastructure portability requires conceptual alignment, not identical resource blocks. While the outcome (a publicly accessible Ubuntu VM) is the same, the structural path to achieving that outcome differs meaningfully across providers.
+
+# 8 Cloud-Agnostic Deployment of a Single VM
