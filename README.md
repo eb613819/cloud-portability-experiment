@@ -799,10 +799,10 @@ Rather than forcing uniformity at the resource layer, portability must instead b
 
 In this approach, portability does not come from forcing all providers to look the same. Instead, it comes from defining a consistent interface at the top level, while allowing each provider to implement resources in its own way. The provider modules remain native and structurally correct, but the user interacts with a single, consistent set of inputs and outputs.
 
-## 8.2 Repository Structure
-To implement the layered, cloud-agnostic interface, the project repository was organized to clearly separate the cloud-neutral interface from provider-specific implementations. The structure ensures that portability is achieved through a consistent top-level interface, while each provider module remains fully native to its platform.
+## 8.2 Directory Structure
+To implement the layered, cloud-agnostic interface, the project directory was organized to clearly separate the cloud-neutral interface from provider-specific implementations. The structure ensures that portability is achieved through a consistent top-level interface, while each provider module remains fully native to its platform.
 
-The repository for the single VM cloud-agnostic deployment is structured as follows:
+The directory for the single VM cloud-agnostic deployment is structured as follows:
 ```bash
 sandbox/single_vm_agnostic/
 ├── interface-vars.tf        #Cloud-neutral input variables
@@ -906,3 +906,143 @@ The approach balances portability with the flexibility to leverage each provider
 ---
 
 # 9. Provider-Native Three VM Deployment (No Abstraction)
+Before introducing a unified interface layer, each cloud provider was implemented independently using its own native OpenTofu configuration. The purpose of this step was to validate that the three-tier architecture could be successfully provisioned and accessed in each environment without abstraction.
+
+By deploying AWS, Azure, and GCP separately, I ensured:
+- Each provider’s networking model was correctly implemented
+- SSH access patterns were verified
+- Private and public IP behavior was fully understood
+- Tier isolation rules functioned as expected
+Only after confirming that each provider worked independently was abstraction considered. This reduced debugging complexity and ensured that any later issues could be attributed to the interface layer rather than provider-specific configuration errors.
+
+## 9.1 Directory Structure
+At this stage, each provider exists as its own working directory with an independent `main.tf`:
+```bash
+sandbox/
+   └── three_vm_native/
+       ├── az/
+       │   └── main.tf
+       ├── aws/
+       │   └── main.tf
+       └── gcp/
+           └── main.tf
+```
+Each directory:
+- Contains a complete network definition
+- Provisions three virtual machines
+- Implements tier-specific firewall rules
+- Outputs relevant public and private IP addresses
+There is no shared state, shared variables, or cross-provider orchestration at this stage.
+
+## 9.2 Three-Tier Architecture Pattern
+Although implemented separately, each provider follows the same logical architecture:
+```bash
+Internet
+   ↓
+Web VM (public IP)
+   ↓
+App VM (private)
+   ↓
+DB VM (private)
+```
+**Web Tier**
+- Assigned a public IP
+- Allowed inbound SSH (22) from the internet
+- Allowed inbound HTTP (80)
+- Serves as a jump host for administrative access
+
+**Application Tier**
+- No public IP
+- Allowed SSH only from the private subnet
+- Allowed application traffic (Ghost: 2368) from the private subnet
+
+**Database Tier**
+- No public IP
+- Allowed SSH only from the private subnet
+- Allowed MySQL (3306) from the private subnet
+
+This pattern ensured that only the web tier was exposed to the internet, while the application and database tiers remained private.
+
+## 9.3 SSH Access Model
+All three providers implemented the same operational access pattern:
+- SSH from local machine → Web VM (public IP)
+- SSH from Web VM → App VM (private IP)
+- SSH from Web VM → DB VM (private IP)
+
+This verified:
+- Internal routing within each virtual network
+- Correct firewall rule configuration
+- Proper isolation of private-tier resources
+
+## 9.4 Validation and Testing
+After provisioning in each provider:
+- SSH connectivity to the web VM was tested
+- SSH from web to app and db was confirmed
+- Private IP reachability was verified
+- Public IP assignment behavior was validated
+This confirmed that the three-tier design functioned consistently across AWS, Azure, and GCP when implemented natively.
+
+## 9.5 Rationale for Delaying Abstraction
+The decision to delay abstraction was intentional.
+Abstracting infrastructure before confirming provider-native behavior can obscure errors and complicate troubleshooting. By first validating each environment independently, the system gained:
+- A known-good baseline per provider
+- Confidence in networking and firewall behavior
+- A clear reference implementation for later modularization
+Only after establishing this baseline will a unified interface layer be introduced to standardize deployment across providers.
+
+## 9.6 Deployment Lifecycle (Identical Across Providers)
+Each provider-native configuration was deployed and tested independently using the standard OpenTofu workflow. The lifecycle for AWS, Azure, and GCP was identical aside from directory selection.
+### 1. Navigate to Provider Directory
+```bash
+cd aws
+# or
+cd azure
+# or
+cd gcp
+```
+
+### 2. Initialize OpenTofu
+```bash
+tofu init
+```
+This downloads the appropriate provider plugins and initializes the working directory.
+
+### 3. Validate and Review Plan
+```bash
+tofu validate
+tofu plan
+```
+This step validates:
+- Resource creation order
+- Networking dependencies
+- Firewall rule configuration
+- Public vs. private IP assignment
+Reviewing the plan before applying ensures that only the intended infrastructure will be created.
+
+### 4. Apply the Configuration
+```bash
+tofu apply
+```
+After provisioning, outputs display the public IP address of the web tier and private IPs of the internal tiers.
+
+### 5. Validate SSH Connectivity
+First, connect to the web tier:
+```bash
+ssh ubuntu@<web_public_ip>
+```
+Close the connection using `exit`. Then test connectivity using the web tier as a jumphost:
+```bash
+ssh -J ubuntu@<web_public_ip> ubuntu@<app_private_ip>
+ssh -J ubuntu@<web_public_ip> ubuntu@<db_private_ip>
+```
+
+### 6. Destroy Infrastructure
+After validation:
+```bash
+tofu destroy
+```
+This removes all resources created by the configuration
+
+---
+
+# 10. Cloud-Agnostic Three VM Deployment
