@@ -803,40 +803,102 @@ Rather than forcing uniformity at the resource layer, portability must instead b
 In this approach, portability does not come from forcing all providers to look the same. Instead, it comes from defining a consistent interface at the top level, while allowing each provider to implement resources in its own way. The provider modules remain native and structurally correct, but the user interacts with a single, consistent set of inputs and outputs.
 
 ## 8.2 Repository Structure
-To implement this layered abstraction, the project repository was reorganized to reflect a clear separation between the cloud-neutral interface and provider-specific implementations.
+To implement the layered, cloud-agnostic interface, the project repository was organized to clearly separate the cloud-neutral interface from provider-specific implementations. The structure ensures that portability is achieved through a consistent top-level interface, while each provider module remains fully native to its platform.
 
-The directory structure for the single cloud-agnostic virtual machine deployment is shown below:
+The repository for the single VM cloud-agnostic deployment is structured as follows:
 ```bash
 sandbox/single_vm_agnostic/
-├── interface-vars.tf
-├── interface.auto.tfvars
-├── main.tf
-├── module-vars.tf
-├── module.auto.tfvars
-├── output.tf
-├── providers.tf
+├── interface-vars.tf        #Cloud-neutral input variables
+├── interface.auto.tfvars    #Values for the interface variables
+├── main.tf                  #Module calls (aws_vm, azure_vm, gcp_vm) with counts
+├── module-vars.tf           #Variable definitions for provider modules
+├── module.auto.tfvars       #Provider-specific configuration values
+├── output.tf                #Cloud-agnostic outputs selecting the active module
+├── providers.tf             #Provider configurations
 └── modules/
     ├── aws/
-    │   ├── aws-out.tf
-    │   ├── aws-vars.tf
-    │   └── main.tf
+    │   ├── aws-vars.tf      #AWS-specific module variables
+    │   ├── aws-out.tf       #AWS module outputs (public_ip, ssh_command)
+    │   └── main.tf          #AWS-native resources
     ├── azure/
-    │   ├── az-out.tf
-    │   ├── az-vars.tf
-    │   └── main.tf
+    │   ├── az-vars.tf       #Azure-specific module variables
+    │   ├── az-out.tf        #Azure module outputs (public_ip, ssh_command)
+    │   └── main.tf          #Azure-native resources
     └── gcp/
-        ├── gcp-out.tf
-        ├── gcp-vars.tf
-        └── main.tf
+        ├── gcp-vars.tf      #GCP-specific module variables
+        ├── gcp-out.tf       #GCP module outputs (public_ip, ssh_command)
+        └── main.tf          #GCP-native resources
 ```
-The root module (`single_vm_agnostic/`) defines the portable interface. It declares input variables, expected outputs, and module invocations. This layer contains no provider-specific resource definitions.
+**Key Points**:
+1. Root Module (`sandbox/single_vm_agnostic/`)
+   - Defines the cloud-neutral interface: `interface-vars.tf` declares high-level variables such as `name_prefix`, `platform`, and SSH keys.
+   - Declares and assigns module-specific variables (module-vars.tf and module.auto.tfvars) at the root level, even though they are used only by individual provider modules. **Reason**: OpenTofu does not automatically load variable declarations or .tfvars files from inside subdirectories, so placing them in the root ensures that module inputs are properly resolved when invoking the provider modules.
+   - Invokes all provider modules, but only the module matching `var.platform` is created via `count` or conditional logic.
+   - Outputs (`output.tf`) expose a single, platform-agnostic interface for the VM’s public IP and SSH command, selecting the correct module’s outputs.
+2. Provider Modules (`sandbox/single_vm_agnostic/modules/`)
+   - Contain provider-native resource definitions (`main.tf`) for AWS, Azure, or GCP.
+   - Declare module-specific inputs (`*-vars.tf`) to parameterize provider settings such as AMI IDs, VM sizes, or image references.
+   - Define module-level outputs (`*-out.tf`) which expose `public_ip` and `ssh_command` back to the root module.
+3. Separation of Concerns
+   - The root module expresses architectural intent (what resources are needed).
+   - Each provider module implements provider-specific resources (how the intent is realized).
+   - Portability is achieved without merging provider resources or adding complex conditional logic inside the modules themselves.
 
-The `modules/` directory contains independent implementations for each cloud provider. Each provider module translates the cloud-neutral inputs into native OpenTofu resource blocks appropriate for that platform. No cross-provider conditionals exist within these modules; each implementation remains structurally aligned with its respective provider’s resource model.
-This structure enforces a clean architectural boundary:
-- The root module defines intent.
-- Provider modules define implementation.
-- Portability is achieved through interface stability rather than resource homogenization.
+## 8.3 Portable Interface
+The cloud-neutral interface defines the architectural intent for a single virtual machine without exposing provider-specific constructs. Input variables, declared at the root module, include parameters such as `name_prefix`, `platform`, `admin_username`, `ssh_pub_key`, and `open_ports`. These variables provide a consistent contract for all provider modules, ensuring that the same high-level configuration can drive deployments in AWS, Azure, and GCP.
 
-## 8.2 Portable Interface
+For example, the name_prefix variable is extended within each module to include the provider name, generating consistent resource naming like `demo-aws`, `demo-azure`, or `demo-gcp`. This approach maintains clarity while avoiding naming collisions across providers.
 
-## 8.3 Provider-specific Modules
+Due to OpenTofu’s variable resolution model, module-specific variables and their default values must be defined at the root (module-vars.tf and module.auto.tfvars) rather than within each module directory. This ensures that values are available at module instantiation time and avoids errors caused by empty or unresolved variables.
+
+## 8.4 Provider-specific Modules
+Each provider module acts as an adapter that translates the cloud-neutral interface into native OpenTofu resource blocks. No cross-provider abstraction exists within the modules; each module is structurally aligned with its provider’s resource model:
+- **AWS module**: Creates a VPC, subnet, security group, key pair, and EC2 instance.
+- **Azure module**: Constructs a resource group, virtual network, subnet, network security group, public IP, NIC, and Linux VM. Provider-specific constructs like NSG rules and NIC associations are handled internally by the module.
+- **GCP module**: Configures a network, subnet, firewall rules, static IP, and compute instance.
+This separation ensures that each module maintains provider-native semantics while conforming to the common interface, simplifying debugging, maintenance, and future extensions.
+
+## 8.5 Deployment Lifecycle
+The cloud-agnostic single VM deployment provides a consistent and predictable workflow for provisioning, accessing, and tearing down virtual machines across AWS, Azure, and GCP. Users interact with the system via a single root module and specify the target cloud using the platform variable.
+
+### Deployment
+To create a VM, run:
+```bash
+tofu apply -var="platform=<provider>"
+```
+Where provider is one of `aws`, `azure`, or `gcp`. Only the module corresponding to the selected provider will be instantiated.
+If a VM from a previous provider exists in the state, OpenTofu will automatically plan to destroy it before creating the new VM. This ensures that only one VM is active at a time, avoiding resource conflicts and reducing unnecessary costs.
+
+### Outputs
+After a successful deployment, the root module exposes a consistent set of outputs for user interaction:
+```bash
+terraform output public_ip
+terraform output ssh_command
+```
+These outputs provide the VM’s external IP and a ready-to-use SSH command, abstracting away provider-specific resource details. Users do not need to reference module-specific outputs or understand provider-native attributes.
+
+### Cleanup
+Tearing down the deployment is equally straightforward:
+```bash
+tofu destroy -var="platform=<provider>"
+```
+**Note**: the platform variable is not used in this command, but if not provided it will prompt for it. This command will cleanup all active resources.
+
+### Summary
+This workflow enforces a simple operational model:
+1. Specify the provider via the `platform` variable.
+2. Apply the configuration to create the VM, automatically destroying any previous deployment from another provider.
+3. Access the VM using the unified outputs (`public_ip` and `ssh_command`).
+4. Destroy the deployment when no longer needed, safely removing provider-specific resources.
+By following this workflow, users achieve cloud portability with minimal cognitive overhead, while the underlying modules maintain provider-native semantics and structural correctness.
+
+## 8.6 Reflections
+This exercise demonstrated that true cloud portability requires abstraction at the interface level rather than at the resource level. By defining a consistent set of inputs, outputs, and a platform variable, we achieved:
+- Behavioral consistency across AWS, Azure, and GCP.
+- Simplicity of operation, with a single `tofu apply` and `tofu destroy` workflow.
+- Modular clarity, keeping provider-specific implementations isolated and maintainable.
+The approach balances portability with the flexibility to leverage each provider’s native constructs, avoiding complex conditional logic while maintaining readability and control.
+
+---
+
+# 9. Provider-Native Three VM Deployment (No Abstraction)
