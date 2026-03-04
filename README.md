@@ -861,6 +861,13 @@ This separation ensures that each module maintains provider-native semantics whi
 ## 8.5 Deployment Lifecycle
 The cloud-agnostic single VM deployment provides a consistent and predictable workflow for provisioning, accessing, and tearing down virtual machines across AWS, Azure, and GCP. Users interact with the system via a single root module and specify the target cloud using the platform variable.
 
+### Initialize Directory
+Initialize `sandbox/single_vm_agnostic/` as an OpenTofu working directory:
+```bash
+cd sandbox/single_vm_agnostic/
+tofu init
+```
+
 ### Deployment
 To create a VM, run:
 ```bash
