@@ -8,7 +8,7 @@ terraform {
 }
 
 provider "google" {
-  project = "cloud-portability-experiment-gcp"
+  project = "cloud-portability-experiment" #Must match project created in authenticated user
   region  = "us-central1"
   zone    = "us-central1-a"
 }
