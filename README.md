@@ -580,6 +580,8 @@ aws sts get-caller-identity
 ```
 If successful, it will return your account and user ARN. At this point, OpenTofu can authenticate to AWS.
 
+---
+
 # 7. Provider-Native Single VM Deployment (No Abstraction)
 
 Before attempting to design a provider-agnostic module structure, it was necessary to understand how each provider models core infrastructure primitives. Each cloud provider was implemented independently using a fully provider-native OpenTofu configuration. Each provider has its own `main.tf`, with no shared modules or variables.
@@ -595,7 +597,7 @@ The goal of this phase was to:
 The provider-native configurations are located in:
 ```bash
 sandbox/
-   └── one_vm_hardcode/
+   └── single_vm_native/
        ├── az/
        │   └── main.tf
        ├── aws/
@@ -787,15 +789,14 @@ This demonstrates that OpenTofu abstracts the provisioning workflow, but not the
 
 This highlights that infrastructure portability requires conceptual alignment, not identical resource blocks. While the outcome (a publicly accessible Ubuntu VM) is the same, the structural path to achieving that outcome differs meaningfully across providers.
 
-# 8. Cloud-Agnostic Deployment of a Single VM
-[Section 7](#7-provider-native-single-vm-deployment-no-abstraction) established independent, provider-native implementations of a single virtual machine in AWS, Azure, and GCP. Although each configuration produced a functionally equivalent result, the underlying resource models, networking constructs, security boundaries, and identity mechanisms differed significantly. These differences mean that infrastructure portability cannot be achieved by unifying resource blocks into a single `main.tf`. The providers do not share a sufficiently aligned abstraction layer to make direct resource-level reuse practical.
+---
 
-Instead, portability must be defined at a higher level. Rather than abstracting provider syntax, this section introduces a cloud-neutral interface that expresses architectural intent. Provider-specific modules then act as adapters, translating that intent into native OpenTofu resource definitions. This layered approach preserves behavioral consistency while respecting structural differences between providers.
+# 8. Cloud-Agnostic Deployment of a Single VM
 
 ## 8.1 Motivation for a Unified Interface
-[Section 7](#7-provider-native-single-vm-deployment-no-abstraction) demonstrated that deploying a functionally equivalent virtual machine across AWS, Azure, and GCP requires substantially different resource models, networking constructs, security configurations, and identity mechanisms. Although the end result was functionally equivalent, the internal structures of each provider differed in ways that are not syntactically or semantically aligned.
+[Section 7](#7-provider-native-single-vm-deployment-no-abstraction) demonstrated that deploying a virtual machine across AWS, Azure, and GCP requires substantially different resource models, networking constructs, security configurations, and identity mechanisms. Although the end result was functionally equivalent, the internal structures of each provider differed in ways that are not syntactically or semantically aligned.
 
-These structural differences make portability at the resource-definition level impractical. Consolidating all providers into a single `main.tf` would require extensive conditional logic, provider-specific branching, and deeply nested abstractions. Such an approach would obscure native semantics, reduce readability, and ultimately create a configuration that is difficult to reason about or maintain.
+These structural differences make portability at the resource-definition level impractical. Consolidating all providers into a single `main.tf` would require extensive conditional logic, provider-specific branching, and deeply nested abstractions. Such an approach would obscure native semantics, reduce readability, and ultimately create a configuration that is difficult to follow or maintain.
 
 Rather than forcing uniformity at the resource layer, portability must instead be achieved at a higher level of abstraction. This section proposes a cloud-neutral interface that sits above provider-specific implementations. The interface expresses architectural intent through a shared set of inputs and outputs, while individual provider modules act as adapters that translate those inputs into native OpenTofu resource definitions.
 
@@ -806,19 +807,29 @@ To implement this layered abstraction, the project repository was reorganized to
 
 The directory structure for the single cloud-agnostic virtual machine deployment is shown below:
 ```bash
-sandbox/one_vm_agnostic/
+sandbox/single_vm_agnostic/
+├── interface-vars.tf
+├── interface.auto.tfvars
 ├── main.tf
-├── variables.tf
-├── outputs.tf
+├── module-vars.tf
+├── module.auto.tfvars
+├── output.tf
+├── providers.tf
 └── modules/
     ├── aws/
+    │   ├── aws-out.tf
+    │   ├── aws-vars.tf
     │   └── main.tf
     ├── azure/
+    │   ├── az-out.tf
+    │   ├── az-vars.tf
     │   └── main.tf
     └── gcp/
+        ├── gcp-out.tf
+        ├── gcp-vars.tf
         └── main.tf
 ```
-The root module (`one_vm_agnostic/`) defines the portable interface. It declares input variables, expected outputs, and module invocations. This layer contains no provider-specific resource definitions.
+The root module (`single_vm_agnostic/`) defines the portable interface. It declares input variables, expected outputs, and module invocations. This layer contains no provider-specific resource definitions.
 
 The `modules/` directory contains independent implementations for each cloud provider. Each provider module translates the cloud-neutral inputs into native OpenTofu resource blocks appropriate for that platform. No cross-provider conditionals exist within these modules; each implementation remains structurally aligned with its respective provider’s resource model.
 This structure enforces a clean architectural boundary:
