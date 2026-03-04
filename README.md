@@ -1046,3 +1046,127 @@ This removes all resources created by the configuration
 ---
 
 # 10. Cloud-Agnostic Three VM Deployment
+After validating provider-native implementations independently, an interface layer was introduced to abstract provider-specific logic behind a unified, cloud-agnostic deployment model.
+
+The goal of this phase was to:
+- Preserve the verified three-tier architecture
+- Standardize inputs and outputs
+- Enable single-directory deployments
+- Maintain provider isolation within modules
+- Allow platform selection through variables
+This resulted in a modular OpenTofu design capable of provisioning identical infrastructure patterns across AWS, Azure, and GCP using a shared interface.
+
+## 10.1 Architectural Approach
+The abstraction layer follows a module-based design:
+- Root module: Defines cloud-neutral inputs and selects the active provider
+- Provider modules: Contain fully native AWS, Azure, and GCP implementations
+- Unified outputs: Normalize provider-specific attributes into a consistent interface
+
+Each provider module provisions:
+- Virtual network
+- Subnet
+- Firewall/security rules
+- Web VM (public IP)
+- App VM (private only)
+- DB VM (private only)
+
+The root module exposes consistent outputs regardless of platform:
+- `web_public_ip`
+- `app_private_ip`
+` `db_private_ip`
+This ensures that downstream tooling (e.g., Ansible) does not need to know which cloud is active.
+
+## 10.2 Directory Structure
+The directory is structured identical to that of [section 8](#8-cloud-agnostic-deployment-of-a-single-vm):
+```bash
+sandbox/three_vm_agnostic/
+├── interface-vars.tf        #Cloud-neutral input variables
+├── interface.auto.tfvars    #Values for the interface variables
+├── main.tf                  #Module calls (aws_vm, azure_vm, gcp_vm) with counts
+├── module-vars.tf           #Variable definitions for provider modules
+├── module.auto.tfvars       #Provider-specific configuration values
+├── output.tf                #Cloud-agnostic outputs selecting the active module
+├── providers.tf             #Provider configurations
+└── modules/
+    ├── aws/
+    │   ├── aws-vars.tf      #AWS-specific module variables
+    │   ├── aws-out.tf       #AWS module outputs (web_public_ip, app_private_ip, db_private_ip)
+    │   └── main.tf          #AWS-native resources
+    ├── azure/
+    │   ├── az-vars.tf       #Azure-specific module variables
+    │   ├── az-out.tf        #Azure module outputs (web_public_ip, app_private_ip, db_private_ip)
+    │   └── main.tf          #Azure-native resources
+    └── gcp/
+        ├── gcp-vars.tf      #GCP-specific module variables
+        ├── gcp-out.tf       #GCP module outputs (web_public_ip, app_private_ip, db_private_ip)
+        └── main.tf          #GCP-native resources
+```
+**Root Layer** Responsibilities
+- Defines cloud-neutral variables
+- Selects the active provider via conditional module count
+- Aggregates outputs from the active module
+- Maintains a single working directory for deployment
+**Provider Module** Responsibilities
+- Implement provider-native networking constructs
+- Define provider-specific variables
+- Expose standardized outputs back to the root module
+This separation ensures that provider-specific complexity remains encapsulated within modules.
+
+## 10.3 Deployment Lifecycle
+With the interface layer in place, the lifecycle becomes:
+### Initialize
+```bash
+cd sandbox/three_vm_agnostic
+tofu init
+```
+### Validate and Plan
+```bash
+tofu validate
+tofu plan
+```
+### Apply
+```bash
+tofu apply
+#OR
+tofu apply -var="platform=<aws|azure|gcp>"
+```
+**Note**: If infrastructure is already deployed and the selected provider is changed, OpenTofu will destroy the previously provisioned resources before creating the new environment. This behavior ensures that only one provider environment is active at a time.
+
+### Validate Access
+```bash
+ssh ubuntu@<web_public_ip>
+```
+Jump host access:
+```bash
+ssh -J ubuntu@<web_public_ip> ubuntu@<app_private_ip>
+ssh -J ubuntu@<web_public_ip> ubuntu@<db_private_ip>
+```
+### Destroy
+```bash
+tofu destroy
+```
+
+## 10.4 Design Benefits
+The interface layer provides:
+- Single working directory
+- Unified variable management
+- Standardized outputs
+- Encapsulation of provider-specific logic
+- Clean separation between provisioning and configuration management
+
+Most importantly, it enables the next phase of the project:
+
+Infrastructure provisioning and application configuration can now be decoupled. Ansible can consume the normalized outputs without needing to know whether AWS, Azure, or GCP is active.
+
+## 10.5 Transition to Configuration Management
+With cloud-agnostic infrastructure in place and validated, the next step is to automate application deployment.
+
+The following section introduces Ansible to install and configure Ghost across:
+- Web tier (Nginx reverse proxy)
+- Application tier (Node.js + Ghost)
+- Database tier (MySQL)
+The infrastructure layer now provides a stable and portable foundation for configuration management.
+
+---
+
+# 11 
