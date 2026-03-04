@@ -13,7 +13,7 @@ This project explores cloud portability and vendor lock-in by deploying identica
       - [Secondary Goals](#secondary-goals)
    - [1.2 Non-Goals](#12-non-goals)
    - [1.3 Future Work](#13-future-work)
-      - [Cross-Cloud MongoDB Replica Set](#cross-cloud-mongodb-replica-set)
+      - [Cross-Cloud Database Replication (Educational)](#cross-cloud-database-replication-educational)
 
 2. [Tooling](#2-tooling)
    - [2.1 Infrastructure Provisioning](#21-infrastructure-provisioning)
@@ -136,15 +136,12 @@ The design intentionally avoids cloud-specific shortcuts.
 
 ## 1.3 Future Work
 
-### Cross-Cloud MongoDB Replica Set
-
-A potential future enhancement is implementing a distributed MongoDB replica set spanning providers to explore:
-
-- Regional fault tolerance  
-- Cross-cloud latency impacts  
-- Distributed systems trade-offs  
-
-This would be an educational extension rather than a recommended production design.
+### Cross-Cloud Database Replication (Educational)
+A potential future enhancement is implementing a distributed database setup (e.g., MySQL replication) across cloud providers to explore:
+- Fault tolerance across multiple regions
+- Cross-cloud latency and performance considerations
+- Trade-offs in distributed systems design
+This setup is intended purely for educational purposes and is **not a recommended approach for production deployments**.
 
 ---
 
@@ -181,13 +178,13 @@ Only the inventory differs per provider.
 
 ## 2.3 Chosen Application
 
-The application deployed in each cloud provider is **Rocket.Chat**.
+The application deployed in each cloud provider is **Ghost**.
 
 It was selected because:
 
 - It represents a realistic production-style web application  
-- It requires a database (MongoDB)  
-- It follows a traditional 3-tier architecture  
+- It requires a database (MySQL or MariaDB)  
+- It follows a traditional 3-tier architectue (frontend web server, backend application, database)
 - It can be fully automated using configuration management  
 
 Each provider hosts an independent Rocket.Chat deployment.
