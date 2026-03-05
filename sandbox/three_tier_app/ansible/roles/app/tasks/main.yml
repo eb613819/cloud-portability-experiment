@@ -1,0 +1,92 @@
+- name: Install PHP and dependencies
+  apt:
+    name:
+      - php-fpm
+      - php-mysql
+      - php-cli
+      - php-curl
+      - php-gd
+      - php-mbstring
+      - php-xml
+      - unzip
+      - curl
+    state: present
+    update_cache: yes
+
+- name: Ensure /var/www exists
+  file:
+    path: /var/www
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Download WordPress
+  get_url:
+    url: https://wordpress.org/latest.tar.gz
+    dest: /tmp/wordpress.tar.gz
+
+- name: Extract WordPress
+  unarchive:
+    src: /tmp/wordpress.tar.gz
+    dest: /var/www/
+    remote_src: yes
+
+- name: Set permissions
+  file:
+    path: /var/www/wordpress
+    owner: www-data
+    group: www-data
+    recurse: yes
+
+- name: Create wp-config.php
+  template:
+    src: wp-config.php.j2
+    dest: /var/www/wordpress/wp-config.php
+
+- name: Install Nginx
+  apt:
+    name: nginx
+    state: present
+    update_cache: yes
+
+- name: Get PHP version
+  command: php -r "echo PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;"
+  register: php_version
+
+- name: Configure Nginx site for WordPress
+  copy:
+    dest: /etc/nginx/sites-available/wordpress
+    content: |
+      server {
+          listen 80;
+          root /var/www/wordpress;
+          index index.php index.html index.htm;
+          location / {
+              try_files $uri $uri/ /index.php?$args;
+          }
+          location ~ \.php$ {
+              include snippets/fastcgi-php.conf;
+              fastcgi_pass unix:/run/php/php{{ php_version.stdout }}-fpm.sock;
+          }
+          location ~ /\.ht {
+              deny all;
+          }
+      }
+
+- name: Enable WordPress Nginx site
+  file:
+    src: /etc/nginx/sites-available/wordpress
+    dest: /etc/nginx/sites-enabled/wordpress
+    state: link
+
+- name: Remove default Nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Restart Nginx
+  service:
+    name: nginx
+    state: restarted
+    enabled: yes

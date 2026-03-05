@@ -1,0 +1,41 @@
+- name: Install MariaDB
+  apt:
+    name:
+      - mariadb-server
+      - python3-pymysql
+    state: present
+    update_cache: yes
+
+- name: Start MariaDB
+  service:
+    name: mariadb
+    state: started
+    enabled: yes
+
+- name: Configure MariaDB to listen on all interfaces
+  lineinfile:
+    path: /etc/mysql/mariadb.conf.d/50-server.cnf
+    regexp: '^bind-address'
+    line: 'bind-address = 0.0.0.0'
+
+- name: Restart MariaDB
+  service:
+    name: mariadb
+    state: restarted
+
+- name: Create WordPress database
+  community.mysql.mysql_db:
+    name: wordpress
+    state: present
+    login_user: root
+    login_unix_socket: /run/mysqld/mysqld.sock
+
+- name: Create WordPress user
+  community.mysql.mysql_user:
+    login_user: root
+    login_unix_socket: /run/mysqld/mysqld.sock
+    name: wpuser
+    password: wppassword
+    priv: "wordpress.*:ALL"
+    host: "%"
+    state: present

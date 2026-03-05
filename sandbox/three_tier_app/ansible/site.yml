@@ -1,0 +1,14 @@
+- hosts: db_group
+  become: true
+  roles:
+    - db
+
+- hosts: app_group
+  become: true
+  roles:
+    - app
+
+- hosts: web_group
+  become: true
+  roles:
+    - web

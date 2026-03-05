@@ -1,0 +1,28 @@
+<?php
+define('DB_NAME', 'wordpress');
+define('DB_USER', 'wpuser');
+define('DB_PASSWORD', 'wppassword');
+define('WP_HOME', 'http://{{ hostvars[groups["web_group"][0]]["ansible_host"] }}');
+define('WP_SITEURL', 'http://{{ hostvars[groups["web_group"][0]]["ansible_host"] }}');
+
+define(
+  'DB_HOST',
+  '{{ hostvars[groups["db_group"][0]]["ansible_host"] }}'
+);
+
+define('AUTH_KEY',         'qQh)2-|d7c|G+_RKc/)7lc]BjNyu? e5=-cVeD,C+r/E_fZcc>nCJJ=axUb],{BU');
+define('SECURE_AUTH_KEY',  '.r]G$qNbMD&S-2:wKQilX!P _yld0$sQ$qC?Gz3CXW>d^3Hx^pR/NX bxe2|+hX#');
+define('LOGGED_IN_KEY',    '-aS>sh2@h-jt_KaTp0y}_nO%D+Q?S`g$}TftuFTh~#ABA%h4WSwFY D4cc;^+.-G');
+define('NONCE_KEY',        'RzLC52c+!|-nyY#Kedj;9L9?Stqfbv-!r&&gvoP[d%$%Z/rjWVEQ|0;nX(~4kB~$');
+define('AUTH_SALT',        '=c;-,+|OoCXZj`6d!$U5;czA+&1BA^-=b[AQOT!i%9iFn+$D8F-=R+p!M)IGmRxU');
+define('SECURE_AUTH_SALT', '*<#(YAYnm}@z1c<H~9a:!).n}Uo.sK]ed9<=<T0nVl`6Zh/_pDMQm][|FOWu$`|q');
+define('LOGGED_IN_SALT',   '!Q^{,4/pU(H-$=W9jt5c?/j>sH%S`.G!^nR^{(~K~cz-W:q`v,Ix,&_vrlY+Mbo|');
+define('NONCE_SALT',       'tm+yF4hjB?=HC#f6?/40S|zpFhMxgN2Lh9PbAb:HaV1JYKI$26px;PnphuSS4c(O');
+
+$table_prefix = 'wp_';
+define('WP_DEBUG', false);
+
+if ( ! defined('ABSPATH') ) {
+    define('ABSPATH', __DIR__ . '/');
+}
+require_once ABSPATH . 'wp-settings.php';
