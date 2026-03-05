@@ -2,8 +2,8 @@
 define('DB_NAME', '{{ wp_db_name }}');
 define('DB_USER', '{{ wp_db_user }}');
 define('DB_PASSWORD', '{{ wp_db_password }}');
-define('WP_HOME', 'http://{{ hostvars[groups["web_group"][0]]["ansible_host"] }}');
-define('WP_SITEURL', 'http://{{ hostvars[groups["web_group"][0]]["ansible_host"] }}');
+define('WP_HOME', 'https://blog.evanbrooks.me');
+define('WP_SITEURL', 'https://blog.evanbrooks.me');
 
 define(
   'DB_HOST',

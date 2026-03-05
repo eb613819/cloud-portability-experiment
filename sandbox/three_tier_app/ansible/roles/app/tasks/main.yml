@@ -95,7 +95,7 @@
 - name: Install WordPress
   command: >
     wp core install
-    --url="http://{{ hostvars[groups['web_group'][0]]['ansible_host'] }}"
+    --url="https://blog.evanbrooks.me"
     --title="{{ wp_site_title }}"
     --admin_user="{{ wp_admin_user }}"
     --admin_password="{{ wp_admin_password }}"
