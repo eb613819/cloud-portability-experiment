@@ -1,4 +1,4 @@
-- name: Install PHP and dependencies
+- name: Install app dependencies
   apt:
     name:
       - php-fpm
@@ -10,6 +10,7 @@
       - php-xml
       - unzip
       - curl
+      - nginx
     state: present
     update_cache: yes
 
@@ -43,12 +44,6 @@
   template:
     src: wp-config.php.j2
     dest: /var/www/wordpress/wp-config.php
-
-- name: Install Nginx
-  apt:
-    name: nginx
-    state: present
-    update_cache: yes
 
 - name: Get PHP version
   command: php -r "echo PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;"
@@ -101,10 +96,10 @@
   command: >
     wp core install
     --url="http://{{ hostvars[groups['web_group'][0]]['ansible_host'] }}"
-    --title="My WordPress Site"
-    --admin_user="admin"
-    --admin_password="changeme"
-    --admin_email="admin@example.com"
+    --title="{{ wp_site_title }}"
+    --admin_user="{{ wp_admin_user }}"
+    --admin_password="{{ wp_admin_password }}"
+    --admin_email="{{ wp_admin_email }}"
     --skip-email
     --allow-root
     --path=/var/www/wordpress

@@ -25,7 +25,7 @@
 
 - name: Create WordPress database
   community.mysql.mysql_db:
-    name: wordpress
+    name: "{{ wp_db_name }}"
     state: present
     login_user: root
     login_unix_socket: /run/mysqld/mysqld.sock
@@ -34,8 +34,8 @@
   community.mysql.mysql_user:
     login_user: root
     login_unix_socket: /run/mysqld/mysqld.sock
-    name: wpuser
-    password: wppassword
+    name: "{{ wp_db_user }}"
+    password: "{{ wp_db_password }}"
     priv: "wordpress.*:ALL"
     host: "%"
     state: present

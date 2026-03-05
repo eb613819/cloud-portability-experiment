@@ -101,3 +101,103 @@ resource "local_file" "ansible_inventory" {
     module.gcp_vm
   ]
 }
+
+locals {
+  web_public_ip = (
+    var.platform == "aws"   ? module.aws_vm[0].web_public_ip :
+    var.platform == "azure" ? module.azure_vm[0].web_public_ip :
+                               module.gcp_vm[0].web_public_ip
+  )
+  app_private_ip = (
+    var.platform == "aws"   ? module.aws_vm[0].app_private_ip :
+    var.platform == "azure" ? module.azure_vm[0].app_private_ip :
+                               module.gcp_vm[0].app_private_ip
+  )
+  db_private_ip = (
+    var.platform == "aws"   ? module.aws_vm[0].db_private_ip :
+    var.platform == "azure" ? module.azure_vm[0].db_private_ip :
+                               module.gcp_vm[0].db_private_ip
+  )
+}
+
+resource "null_resource" "wait_for_ssh_web" {
+  triggers = {
+    platform = var.platform
+    web_ip   = local.web_public_ip
+  }
+  connection {
+    type    = "ssh"
+    host    = local.web_public_ip
+    user    = var.admin_username
+    agent   = true
+    timeout = "5m"
+  }
+  provisioner "remote-exec" {
+    inline = ["echo SSH ready on web"]
+  }
+  depends_on = [local_file.ansible_inventory]
+}
+
+resource "null_resource" "wait_for_ssh_app" {
+  triggers = {
+    platform = var.platform
+    app_ip   = local.app_private_ip
+  }
+  connection {
+    type         = "ssh"
+    host         = local.app_private_ip
+    user         = var.admin_username
+    agent        = true
+    timeout      = "5m"
+    bastion_host = local.web_public_ip
+    bastion_user = var.admin_username
+  }
+  provisioner "remote-exec" {
+    inline = ["echo SSH ready on app"]
+  }
+  depends_on = [null_resource.wait_for_ssh_web]
+}
+
+resource "null_resource" "wait_for_ssh_db" {
+  triggers = {
+    platform = var.platform
+    db_ip    = local.db_private_ip
+  }
+  connection {
+    type         = "ssh"
+    host         = local.db_private_ip
+    user         = var.admin_username
+    agent        = true
+    timeout      = "5m"
+    bastion_host = local.web_public_ip
+    bastion_user = var.admin_username
+  }
+  provisioner "remote-exec" {
+    inline = ["echo SSH ready on db"]
+  }
+  depends_on = [null_resource.wait_for_ssh_web]
+}
+
+resource "null_resource" "ansible" {
+  triggers = {
+    platform = var.platform
+    web_ip   = local.web_public_ip
+  }
+  provisioner "local-exec" {
+    command     = "ansible-playbook site.yml"
+    working_dir = "${path.module}/ansible"
+  }
+  depends_on = [
+    null_resource.wait_for_ssh_app,
+    null_resource.wait_for_ssh_db
+  ]
+}
+
+output "wordpress_url" {
+  value = "http://${(
+    var.platform == "aws"   ? module.aws_vm[0].web_public_ip :
+    var.platform == "azure" ? module.azure_vm[0].web_public_ip :
+                               module.gcp_vm[0].web_public_ip
+  )}"
+  description = "WordPress site URL"
+}

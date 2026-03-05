@@ -1,12 +1,16 @@
-- hosts: db_group
+- hosts: db_group:app_group
   become: true
-  roles:
-    - db
+  gather_facts: false
+  tasks:
+    - name: Run db role
+      include_role:
+        name: db
+      when: inventory_hostname in groups['db_group']
 
-- hosts: app_group
-  become: true
-  roles:
-    - app
+    - name: Run app role
+      include_role:
+        name: app
+      when: inventory_hostname in groups['app_group']
 
 - hosts: web_group
   become: true
