@@ -90,3 +90,22 @@
     name: nginx
     state: restarted
     enabled: yes
+
+- name: Download WP-CLI
+  get_url:
+    url: https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+    dest: /usr/local/bin/wp
+    mode: '0755'
+
+- name: Install WordPress
+  command: >
+    wp core install
+    --url="http://{{ hostvars[groups['web_group'][0]]['ansible_host'] }}"
+    --title="My WordPress Site"
+    --admin_user="admin"
+    --admin_password="changeme"
+    --admin_email="admin@example.com"
+    --skip-email
+    --allow-root
+    --path=/var/www/wordpress
+  become: yes

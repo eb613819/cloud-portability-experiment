@@ -12,7 +12,7 @@ resource "aws_vpc" "main" {
 resource "aws_subnet" "main" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
-  map_public_ip_on_launch = false
+  map_public_ip_on_launch = true
   tags = {
     Name = "${local.full_name_prefix}-subnet"
   }
@@ -90,7 +90,7 @@ resource "aws_security_group" "app" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    security_groups = [aws_security_group.web.id]
   }
 
   egress {
@@ -118,7 +118,7 @@ resource "aws_security_group" "db" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] 
+    security_groups = [aws_security_group.web.id]
   }
 
   egress {
@@ -139,7 +139,7 @@ resource "aws_instance" "db" {
   instance_type          = var.provider_config.instance_type
   subnet_id              = aws_subnet.main.id
   vpc_security_group_ids = [aws_security_group.db.id]
-  associate_public_ip_address = false
+  associate_public_ip_address = true
   key_name               = aws_key_pair.main.key_name
 
   tags = {
@@ -152,7 +152,7 @@ resource "aws_instance" "app" {
   instance_type          = var.provider_config.instance_type
   subnet_id              = aws_subnet.main.id
   vpc_security_group_ids = [aws_security_group.app.id]
-  associate_public_ip_address = false
+  associate_public_ip_address = true
   key_name               = aws_key_pair.main.key_name
 
   tags = {

@@ -149,6 +149,7 @@ resource "google_compute_instance" "app" {
 
   network_interface {
     subnetwork = google_compute_subnetwork.main.id
+    access_config {}
   }
 
   metadata = {
@@ -170,6 +171,7 @@ resource "google_compute_instance" "db" {
 
   network_interface {
     subnetwork = google_compute_subnetwork.main.id
+    access_config {}
   }
 
   metadata = {
