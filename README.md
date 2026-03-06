@@ -1169,8 +1169,197 @@ The infrastructure layer now provides a stable and portable foundation for confi
 
 ---
 
-# 11 
+# 11. Configuration Management and Application Deployment
+With a cloud-agnostic infrastructure layer established in Section 10, the next phase of the project focuses on **automating application deployment and configuration**.
 
+Rather than manually configuring servers after provisioning, **Ansible** is used to install and configure the full application stack across the three virtual machines.
+
+This phase introduces:
+- Automated software installation
+- Configuration templating
+- Multi-host orchestration
+- Integration between OpenTofu provisioning and Ansible configuration
+
+The goal of this phase is to ensure that **application deployment is fully reproducible and portable across cloud providers**.
+
+The resulting system deploys a complete **WordPress three-tier application** consisting of:
+
+| Tier | Role |
+|-----|-----|
+| Web | Nginx reverse proxy and TLS termination |
+| Application | PHP-FPM + WordPress |
+| Database | MariaDB |
+
+Each component is deployed using **Ansible roles** mapped to the infrastructure created in Section 10.
+
+---
+
+## 11.1 Architecture
+```text
+Internet
+   |
+   v
+Web Tier (Nginx + TLS)
+   |
+   v
+Application Tier (PHP-FPM + WordPress)
+   |
+   v
+Database Tier (MariaDB)
+```
+This separation provides several architectural advantages:
+
+- Isolation between presentation, application logic, and persistence
+- Independent configuration of each tier
+- Simplified troubleshooting
+- Scalability potential in real-world environments
+
+### Network Access Design
+
+During implementation, the application and database virtual machines were configured with **public IP addresses**.
+
+Originally, the architecture assumed that only the web server would expose a public endpoint while the application and database tiers remained private. However, this design would require a **NAT gateway** to allow outbound internet access for package installation and updates.
+
+To avoid the additional cost associated with NAT gateways across multiple cloud providers, the application and database instances were given public IP addresses while **strict firewall rules restrict inbound access**.
+
+The resulting configuration is:
+
+| Tier | Public IP | SSH Access |
+|-----|-----|-----|
+| Web | Yes | Internet |
+| App | Yes | Private network only |
+| DB | Yes | Private network only |
+
+Firewall rules enforce that:
+
+- External SSH access is allowed only to the **web tier**
+- The **web server acts as a jump host** for administrative access
+- Application and database SSH access is restricted to the internal network
+
+Example administrative SSH access flow:
+
+```bash
+ssh ubuntu@<web_public_ip>
+ssh -J ubuntu@<web_public_ip> ubuntu@<app_private_ip>
+ssh -J ubuntu@<web_public_ip> ubuntu@<db_private_ip>
+```
+Although the application and database instances possess public IP addresses, firewall restrictions ensure that they remain **administratively isolated from the public internet**.
+
+In production environments, these tiers would typically reside in **private subnets with outbound access provided by a NAT gateway or internal package mirror**. The approach used here prioritizes **cost efficiency for an educational deployment** while maintaining controlled administrative access.
+
+## 11.2 Ansible Directory Structure
+Application configuration is implemented using **Ansible roles**, which separate responsibilities by tier.
+```bash
+ansible/
+├── site.yml
+├── ansible.cfg
+├── inventory.yml
+├── group_vars/
+│   └── all.yml
+└── roles/
+    ├── web/
+    │   ├── tasks/
+    │   │   └── main.yml
+    │   └── templates/
+    │       ├── nginx.conf1.j2
+    │       └── nginx.conf2.j2
+    ├── app/
+    │   ├── tasks/
+    │   │   └── main.yml
+    │   └── templates/
+    │       └── wp-config.php.j2
+    └── db/
+        └── tasks/
+            └── main.yml
+```
+Each role manages configuration for a specific tier:
+
+| Role | Responsibility |
+|-----|-----|
+| web	| Installs Nginx and configures reverse proxy and TLS |
+| app | Installs PHP-FPM and WordPress |
+| db | Installs and configures MariaDB |
+
+Templates are used to dynamically generate configuration files based on variables supplied during deployment.
+
+## 11.3 Playbook Execution
+The deployment is orchestrated through a single Ansible playbook:
+```bash
+site.yaml
+```
+Database and application roles execute **in parallel**, while the web tier is configured afterward.
+```yaml
+- hosts: db_group:app_group
+  become: true
+  gather_facts: false
+
+  roles:
+    - { role: db,  when: "'db_group' in group_names" }
+    - { role: app, when: "'app_group' in group_names" }
+
+- hosts: web_group
+  become: true
+  roles:
+    - web
+```
+This execution model allows:
+- Database and application installation to occur simultaneously
+- Web tier configuration to occur after backend services are available
+
+## 11.4 Transition to Automated Deployment
+At this stage, the infrastructure layer (OpenTofu) and configuration layer (Ansible) are fully functional but still operate as separate steps.
+
+The final phase of the project integrates both layers into a **single automated deployment pipeline**, where infrastructure provisioning, configuration management, DNS configuration, and application deployment occur as part of the same workflow.
+
+---
+
+# 12. End-to-End Automated Deployment Pipeline
+To simplify deployment and demonstrate a fully automated infrastructure workflow, the provisioning and configuration layers were integrated into a single pipeline executed through **OpenTofu**.
+This integration enables the entire system to be deployed with a single command.
+```bash
+tofu apply
+```
+The OpenTofu configuration was extended to perform additional orchestration tasks beyond infrastructure provisioning.
+
+## 12.1 Automated Inventory Generation
+OpenTofu generates an Ansible inventory file dynamically using `inventory.tf` and the IP addresses produced during infrastructure provisioning.
+
+The infrastructure modules expose the following normalized outputs:
+- `web_public_ip`
+- `app_private_ip`
+- `db_private_ip`
+
+These values are used to construct the Ansible inventory file automatically. This approach removes the need for manual inventory management and ensures that configuration management always targets the correct infrastructure resources. It also allows the same Ansible configuration to operate across multiple cloud providers without modification.
+
+## 12.2 SSH Availability Checks
+Newly provisioned virtual machines may take several seconds to complete their initialization and begin accepting SSH connections.
+To prevent configuration tasks from executing before hosts are ready, the OpenTofu configuration includes logic in `ssh.tf` to wait for SSH availability.
+This step ensures that:
+- Virtual machines have completed initialization
+- SSH services are active
+- Configuration management can proceed reliably
+
+## 12.3 DNS Configuration
+The deployment pipeline also automates DNS configuration using the Namecheap API. Namecheap variables are declared in `namecheap-vars.tf`. A
+`namecheap.auto.tfvars` file must exist locally to provide the required credentials and domain configuration values. The domain configured in `ansible/group_vars/all.yml` must also match
+the DNS configuration.
+During deployment:
+- The web server’s public IP address is retrieved from OpenTofu outputs
+- A DNS record is created or updated for the configured domain
+- The record points the domain to the web server
+This step ensures that the application becomes accessible via a domain name immediately after deployment.
+
+## 12.4 Ansible Execution
+Once infrastructure provisioning, SSH availability checks, and DNS configuration are complete, OpenTofu invokes the Ansible playbook responsible for installing and configuring the application stack using `ansible.tf`.
+The Ansible execution performs the following tasks:
+- Install and configure **MariaDB** on the database server
+- Install **PHP-FPM and WordPress** on the application server
+- Configure **Nginx reverse proxy and TLS** on the web server
+This process installs the full application stack without requiring manual intervention.
+
+## 12.5 Directory Structure
+The structure of the project directory is as follows:
+```bash
 three-tier-app/ 
 ├── ansible.tf              # Runs ansible playbook
 ├── dns.tf                  # Configure namecheap records through API
@@ -1182,7 +1371,7 @@ three-tier-app/
 ├── module-vars.tf          # Module specific variables
 ├── module.auto.tfvars      # Module variable values
 ├── namecheap-vars.tf       # Namecheap variables (username, api key, client ip, domain)
-├── namecheap.auto.tfvas    # gitignored namecheap variable values
+├── namecheap.auto.tfvars   # gitignored namecheap variable values
 ├── output.tf               # Outputs
 ├── providers.tf            # Providers
 ├── ssh.tf                  # Checks SSH is available
@@ -1220,5 +1409,34 @@ three-tier-app/
         │   └── templates/
         │       └── wp-config.php.j2
         └── db/
-            └── tasks/
+             └── tasks/
                 └── main.yml
+```
+
+## 12.6 Deployment Workflow
+The resulting deployment lifecycle is:
+```bash
+tofu apply
+   │
+   ├── Provision infrastructure (AWS / Azure / GCP)
+   ├── Allocate public and private IP addresses
+   ├── Generate Ansible inventory
+   ├── Wait for SSH availability
+   ├── Configure DNS records
+   ├── Execute Ansible playbook
+   │      ├── Install MariaDB
+   │      ├── Install WordPress + PHP
+   │      └── Configure Nginx reverse proxy and TLS
+   └── Deployment complete
+```
+After the process completes, the WordPress application is accessible via the configured domain name.
+
+## 12.7 Project Outcome
+The final system demonstrates a **fully automated, cloud-agnostic application deployment pipeline**.
+Key characteristics include:
+- Infrastructure provisioning through **OpenTofu**
+- Configuration management through **Ansible**
+- Cloud abstraction across **AWS, Azure, and GCP**
+- Automated DNS configuration
+- End-to-end deployment from a single command
+The platform can now deploy an identical three-tier WordPress application stack across multiple cloud providers with minimal modification, demonstrating the effectiveness of **infrastructure-as-code and configuration management integration**.
