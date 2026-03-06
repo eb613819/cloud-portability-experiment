@@ -1,107 +1,103 @@
 # Cloud Portability Experiment
-### Multi-Cloud 3-Tier Deployment with OpenTofu and Ansible
+### Portable 3-Tier Deployment Across Multiple Cloud Providers Using OpenTofu and Ansible
 
-This project explores cloud portability and vendor lock-in by deploying identical 3-tier application stacks across multiple cloud providers using reusable Infrastructure as Code and configuration management.
+This project explores cloud portability and vendor lock-in by deploying identical 3-tier application stacks across multiple cloud providers using reusable Infrastructure as Code (IaC) and configuration management.
 
 ---
 
 # Table of Contents
 
-1. [Overview](#overview)
-   - [1.1 Project Goals](#11-project-goals)
-      - [Primary Goal](#primary-goal)
-      - [Secondary Goals](#secondary-goals)
-   - [1.2 Non-Goals](#12-non-goals)
-   - [1.3 Future Work](#13-future-work)
-      - [Cross-Cloud Database Replication (Educational)](#cross-cloud-database-replication-educational)
+1. [Overview](#1-overview)
+  - [1.1 Project Goals](#11-project-goals)
+  - [1.2 Non-Goals](#12-non-goals)
+  - [1.3 Future Work](#13-future-work)
 
 2. [Tooling](#2-tooling)
-   - [2.1 Infrastructure Provisioning](#21-infrastructure-provisioning)
-   - [2.2 Configuration Management](#22-configuration-management)
-   - [2.3 Chosen Application](#23-chosen-application)
+  - [2.1 Infrastructure Provisioning](#21-infrastructure-provisioning)
+  - [2.2 Configuration Management](#22-configuration-management)
+  - [2.3 Chosen Application](#23-chosen-application)
 
 3. [Architecture](#3-architecture)
-   - [3.1 High-Level Design](#31-high-level-design)
-   - [3.2 Multi-Cloud Strategy](#32-multi-cloud-strategy)
-   - [3.3 3-Tier Breakdown](#33-3-tier-breakdown)
-      - [Frontend Tier](#frontend-tier)
-      - [Backend Tier](#backend-tier)
-      - [Database Tier](#database-tier)
-   - [3.4 DNS Design](#34-dns-design)
-   - [3.5 Architecture Diagram](#35-architecture-diagram)
+  - [3.1 High-Level Design](#31-high-level-design)
+  - [3.2 Multi-Cloud Strategy](#32-multi-cloud-strategy)
+  - [3.3 3-Tier Breakdown](#33-3-tier-breakdown)
+  - [3.4 DNS Design](#34-dns-design)
+  - [3.5 Architecture Diagram](#35-architecture-diagram)
 
 4. [Repository Structure](#4-repository-structure)
 
 5. [Deployment Workflow](#5-deployment-workflow)
 
 6. [Development](#6-development)
-   - [6.1 Development Environment](#61-development-environment)
-   - [6.2 Development Reference Documentation](#62-development-reference-documentation)
-   - [6.3 Setup](#63-setup)
-      - [OpenTofu](#opentofu)
-         - [OpenTofu Installation](#opentofu-installation)
-         - [Autocomplete](#autocomplete)
-      - [Ansible](#ansible)
-         - [Ansible Installation](#ansible-installation)
-      - [SSH Key](#ssh-key)
-         - [Generate the SSH Key](#generate-the-ssh-key)
-         - [Start the SSH Agent](#start-the-ssh-agent)
-         - [Add the SSH Key to the Agent](#add-the-ssh-key-to-the-agent)
-         - [Verify the Key is Loaded](#verify-the-key-is-loaded)
-         - [Start SSH Agent Automatically on Login](#start-ssh-agent-automatically-on-login)
-      - [Azure](#azure)
-         - [Student Azure Account](#student-azure-account)
-         - [Install Azure CLI](#install-azure-cli)
-         - [Log in to Azure](#log-in-to-azure)
-         - [Select the Correct Azure Subscription](#select-the-correct-azure-subscription)
-      - [Google Cloud](#google-cloud)
-         - [GCP Account](#gcp-account)
-         - [Install GCP CLI](#install-gcp-cli)
-         - [Initialize and authorize the gcloud CLI](#initialize-and-authorize-the-gcloud-cli)
-         - [Enable Application Default Credentials](#enable-application-default-credentials)
-         - [Enable Compute Engine API](#enable-compute-engine-api)
-      - [Amazon Web Services](#amazon-web-services)
-         - [AWS Account](#aws-account)
-         - [Install AWS CLI](#install-aws-cli)
-         - [Login and Configure AWS CLI](#login-and-configure-aws-cli)
-7. [Provider-Native Single VM Deployment (No Abstraction)](#7-provider-native-single-vm-deployment-no-abstraction)  
-   - [7.1 Directory Structure](#71-directory-structure)  
-   - [7.2 Provider Configuration](#72-provider-configuration)  
-      - [Azure](#azure-1)  
-      - [AWS](#aws)  
-      - [GCP](#gcp)  
-   - [7.3 Networking Layer](#73-networking-layer)  
-      - [Azure](#azure-2)  
-      - [AWS](#aws-1)  
-      - [GCP](#gcp-1)  
-   - [7.4 Public IP Allocation](#74-public-ip-allocation)  
-   - [7.5 Security Model (SSH Access)](#75-security-model-ssh-access)  
-      - [Azure](#azure-3)  
-      - [AWS](#aws-2)  
-      - [GCP](#gcp-2)  
-   - [7.6 SSH Key Injection](#76-ssh-key-injection)  
-   - [7.7 Virtual Machine Resource](#77-virtual-machine-resource)  
-   - [7.8 Deployment Lifecycle (Identical Across Providers)](#78-deployment-lifecycle-identical-across-providers)  
-   - [7.9 Comparative Observations](#79-comparative-observations)
+  - [6.1 Development Environment](#61-development-environment)
+  - [6.2 Development Reference Documentation](#62-development-reference-documentation)
+  - [6.3 Setup](#63-setup)
+    - [OpenTofu](#opentofu)
+    - [Ansible](#ansible)
+    - [SSH Key](#ssh-key)
+    - [Azure](#azure)
+    - [Google Cloud](#google-cloud)
+    - [Amazon Web Services](#amazon-web-services)
+
+7. [Provider-Native Single VM Deployment (No Abstraction)](#7-provider-native-single-vm-deployment-no-abstraction)
+  - [7.1 Directory Structure](#71-directory-structure)
+  - [7.2 Provider Configuration](#72-provider-configuration)
+  - [7.3 Networking Layer](#73-networking-layer)
+  - [7.4 Public IP Allocation](#74-public-ip-allocation)
+  - [7.5 Security Model (SSH Access)](#75-security-model-ssh-access)
+  - [7.6 SSH Key Injection](#76-ssh-key-injection)
+  - [7.7 Virtual Machine Resource](#77-virtual-machine-resource)
+  - [7.8 Deployment Lifecycle](#78-deployment-lifecycle-identical-across-providers)
+  - [7.9 Comparative Observations](#79-comparative-observations)
+
 8. [Cloud-Agnostic Deployment of a Single VM](#8-cloud-agnostic-deployment-of-a-single-vm)
+  - [8.1 Motivation for a Unified Interface](#81-motivation-for-a-unified-interface)
+  - [8.2 Directory Structure](#82-directory-structure)
+  - [8.3 Portable Interface](#83-portable-interface)
+  - [8.4 Provider-specific Modules](#84-provider-specific-modules)
+  - [8.5 Deployment Lifecycle](#85-deployment-lifecycle)
+
+9. [Extending the Architecture to Three Tiers](#9-extending-the-architecture-to-three-tiers)
+
+10. [Cloud-Agnostic Three VM Deployment](#10-cloud-agnostic-three-vm-deployment)
+  - [10.1 Architectural Approach](#101-architectural-approach)
+  - [10.2 Directory Structure](#102-directory-structure)
+  - [10.3 Deployment Lifecycle](#103-deployment-lifecycle)
+  - [10.4 Design Benefits](#104-design-benefits)
+  - [10.5 Transition to Configuration Management](#105-transition-to-configuration-management)
+
+11. [Automated Application Deployment with Ansible](#11-automated-application-deployment-with-ansible)
+  - [11.1 Network Access Model](#111-network-access-model)
+  - [11.2 Ansible Role Structure](#112-ansible-role-structure)
+  - [11.3 Dynamic Inventory Generation](#113-dynamic-inventory-generation)
+  - [11.4 Playbook Execution](#114-playbook-execution)
+  - [11.5 Resulting Application Deployment](#115-resulting-application-deployment)
+
+12. [Integrated Provisioning and Configuration Workflow](#12-integrated-provisioning-and-configuration-workflow)
+  - [12.1 Orchestrating the Full Deployment](#121-orchestrating-the-full-deployment)
+  - [12.2 Waiting for Infrastructure Readiness](#122-waiting-for-infrastructure-readiness)
+  - [12.3 Automatic Ansible Invocation](#123-automatic-ansible-invocation)
+  - [12.4 End-to-End Deployment Lifecycle](#124-end-to-end-deployment-lifecycle)
     
 ---
 
-# Overview
+# 1. Overview
 
 This project explores cloud portability by deploying the same 3-tier application architecture across three major cloud providers:
 
-- Amazon Web Services (AWS)  
-- Microsoft Azure  
-- Google Cloud Platform (GCP)  
+- Amazon Web Services (AWS)
+- Microsoft Azure
+- Google Cloud Platform (GCP)
 
-Infrastructure is provisioned using OpenTofu and configured using Ansible.
+Rather than running all deployments simultaneously, the project maintains **a single active deployment at a time**. Changing the target provider triggers OpenTofu to destroy the existing infrastructure and recreate the stack in the selected cloud environment.
+
+This approach allows the same infrastructure and configuration code to be reused across providers while avoiding the cost and complexity of maintaining multiple concurrent environments.
 
 The central question explored is:
 
 > Can the same infrastructure and configuration code deploy identical application stacks across multiple cloud providers with minimal changes?
 
-The focus is on abstraction, portability, and reusable automation rather than cloud-specific optimizations.
+The focus is on abstraction, portability, and reusable automation rather than cloud-specific optimizations. The system therefore demonstrates **redeployment portability rather than simultaneous multi-cloud operation**.
 
 ## 1.1 Project Goals
 
@@ -109,12 +105,12 @@ The focus is on abstraction, portability, and reusable automation rather than cl
 
 Design provider-agnostic infrastructure and configuration code that:
 
-- Deploys the same 3-tier architecture in AWS, Azure, and GCP  
+- Deploys the same 3-tier architecture in AWS, Azure, and GCP using the same codebase.
 - Reuses the same OpenTofu module structure  
 - Reuses the same Ansible roles  
 - Minimizes cloud-specific conditionals  
 
-Switching providers should require modifying configuration values — not rewriting infrastructure modules.
+Switching providers should require modifying configuration values, not rewriting infrastructure modules. The target cloud provider can be changed by modifying configuration variables and re-running the OpenTofu deployment.
 
 ### Secondary Goals
 
@@ -141,6 +137,7 @@ A potential future enhancement is implementing a distributed database setup (e.g
 - Fault tolerance across multiple regions
 - Cross-cloud latency and performance considerations
 - Trade-offs in distributed systems design
+
 This setup is intended purely for educational purposes and is **not a recommended approach for production deployments**.
 
 ---
@@ -165,29 +162,39 @@ Infrastructure code is structured to:
 
 ## 2.2 Configuration Management
 
-**Ansible** is used to:
+**Ansible** is used to configure the virtual machines after they are provisioned by OpenTofu.
 
-- Install system dependencies  
-- Install MongoDB  
-- Install and configure Rocket.Chat  
-- Configure reverse proxy  
-- Manage system services  
+The configuration process installs and configures:
 
-The same Ansible roles are reused across all three cloud environments.  
-Only the inventory differs per provider.
+- Nginx web server
+- PHP-FPM runtime
+- WordPress application
+- MariaDB database server
+- Required system packages
+- TLS certificates using Let's Encrypt
+
+Each application tier is implemented as an Ansible role:
+
+- `web` – installs Nginx and configures the reverse proxy
+- `app` – installs PHP-FPM and WordPress
+- `db` – installs and configures MariaDB
+
+These roles are applied to the appropriate hosts using a dynamically generated inventory created by OpenTofu.
+
+The same Ansible roles are reused across all cloud providers. Only the inventory values differ.
 
 ## 2.3 Chosen Application
 
-The application deployed in each cloud provider is **Ghost**.
+The application deployed in each cloud provider is **WordPress**.
 
-It was selected because:
+WordPress was selected because:
 
-- It represents a realistic production-style web application  
-- It requires a database (MySQL or MariaDB)  
-- It follows a traditional 3-tier architectue (frontend web server, backend application, database)
-- It can be fully automated using configuration management  
+- It represents a realistic production-style web application
+- It requires a relational database (MySQL or MariaDB)
+- It follows a traditional 3-tier architecture (web server, application runtime, database)
+- It can be fully automated using configuration management
 
-Each provider hosts an independent Rocket.Chat deployment.
+Although WordPress is often deployed on a single server, separating the tiers provides a clear demonstration of infrastructure provisioning, network design, and configuration management.
 
 ---
 
@@ -195,111 +202,164 @@ Each provider hosts an independent Rocket.Chat deployment.
 
 ## 3.1 High-Level Design
 
-Each cloud provider hosts an identical 3-tier stack.
+The system deploys a **single 3-tier application stack at a time** consisting of:
 
-Across all providers:
+- 1 Web server
+- 1 Application server
+- 1 Database server
 
-- 3 independent deployments  
-- 9 total virtual machines  
-- 3 separate DNS endpoints  
+The infrastructure is designed so that the **same OpenTofu and Ansible code can deploy this stack in AWS, Azure, or GCP**.
 
-Each stack is fully isolated and self-contained.
+Switching providers replaces the existing infrastructure with an equivalent deployment in the selected cloud environment.
+
+This allows the project to evaluate portability while keeping the infrastructure footprint small and cost-efficient.
 
 ## 3.2 Multi-Cloud Strategy
 
-Rather than distributing one application across clouds, this project deploys:
+Rather than operating a distributed application across multiple providers, this project focuses on **redeployment portability**.
 
-- One complete 3-tier stack per provider  
+The infrastructure is designed so that:
 
-This isolates portability from distributed system complexity and allows clean comparison across platforms.
+- The same OpenTofu modules can deploy infrastructure in any provider
+- The same Ansible roles configure the application stack
+- Switching providers requires only configuration changes
+
+When the target provider changes, OpenTofu destroys the existing infrastructure and recreates the stack in the new provider.
+
+This strategy isolates the challenge of **cloud portability** from the complexity of **multi-cloud distributed systems**.
 
 ## 3.3 3-Tier Breakdown
 
-For each provider:
+For the active deployment:
 
-- 1 Frontend VM  
-- 1 Backend VM  
-- 1 Database VM  
+- 1 Web VM
+- 1 Application VM
+- 1 Database VM
 
-### Frontend Tier
-- Public IP  
-- Reverse proxy (Nginx)  
-- Routes traffic to backend  
+### Web Tier
 
-### Backend Tier
-- Runs Rocket.Chat  
-- Handles application logic  
+- Public IP
+- Runs **Nginx**
+- Terminates TLS
+- Acts as a reverse proxy to the application tier
+- Serves as the SSH jump host for administrative access
+
+### Application Tier
+
+- Runs **PHP-FPM**
+- Hosts the **WordPress** application files
+- Processes dynamic requests forwarded from the web tier
 
 ### Database Tier
-- Runs MongoDB  
-- Private network access only  
+
+- Runs **MariaDB**
+- Stores WordPress data
+- Accessible only from the application tier via the private network
 
 ## 3.4 DNS Design
 
-Each frontend VM receives a subdomain under:
+The deployed application receives a subdomain under:
 ```
 evanbrooks.me
 ```
 
 Example structure:
-- aws.chat.evanbrooks.me  
-- az.chat.evanbrooks.me  
-- gcp.chat.evanbrooks.me  
+- blog.evanbrooks.me  
+- wp.evanbrooks.me  
 
 OpenTofu automatically creates DNS A records pointing to the appropriate frontend public IP.
 
 ## 3.5 Architecture Diagram
 ```
-             +-------------------+
-             |   evanbrooks.me   |
-             +-------------------+
-                      |
-       -------------------------------
-       |             |               |
-      AWS           Azure             GCP
-       |             |               |
-  +------------+  +------------+  +------------+
-  | Frontend   |  | Frontend   |  | Frontend   |
-  +------------+  +------------+  +------------+
-       |             |               |
-  +------------+  +------------+  +------------+
-  | Backend    |  | Backend    |  | Backend    |
-  +------------+  +------------+  +------------+
-       |             |               |
-  +------------+  +------------+  +------------+
-  | Database   |  | Database   |  | Database   |
-  +------------+  +------------+  +------------+
-```
+           +-------------------+
+           |   evanbrooks.me   |
+           +-------------------+
+                    |
+                Active Deployment
+                    |
+          ------------------------
+          |          |           |
+        Web        App        Database
+        (VM)       (VM)        (VM)
 
-Each stack operates independently.
+      Infrastructure provisioned in:
+      AWS  |  Azure  |  GCP
+      (selected at deployment time)
+```
 
 ---
 
 # 4. Repository Structure
-**PLACEHOLDER**
-This section will document:
-
-- Directory layout  
-- OpenTofu module structure  
-- Provider-specific configuration files  
-- Ansible role hierarchy  
-- Inventory organization  
-
-(To be completed after initial scaffolding.)
+The repository is structured as follows:
+```bash
+cloud-portability-experiment/
+├── sandbox/           # Code for development iterations
+└── three-tier-app/    # Code for finished project
+     ├── ansible.tf              # Runs ansible playbook
+     ├── dns.tf                  # Configure namecheap records through API
+     ├── interface-vars.tf       # Interface specific variables
+     ├── interface.auto.tfvars   # Interface variable values
+     ├── inventory.tf            # Generates ansible inventory
+     ├── locals.tf               # Defines locals (IPs)
+     ├── main.tf                 # Module calls (aws_vm, azure_vm, gcp_vm) with counts
+     ├── module-vars.tf          # Module specific variables
+     ├── module.auto.tfvars      # Module variable values
+     ├── namecheap-vars.tf       # Namecheap variables (username, api key, client ip, domain)
+     ├── namecheap.auto.tfvars   # gitignored namecheap variable values
+     ├── output.tf               # Outputs
+     ├── providers.tf            # Providers
+     ├── ssh.tf                  # Checks SSH is available
+     ├── versions.tf             # Versions
+     ├── .gitignore
+     ├── modules/
+     │   ├── aws/
+     │   │   ├── main.tf
+     │   │   ├── aws-vars.tf
+     │   │   └── aws-out.tf
+     │   ├── az/
+     │   │   ├── main.tf
+     │   │   ├── az-vars.tf
+     │   │   └── az-out.tf
+     │   └── gcp/
+     │       ├── main.tf
+     │       ├── gcp-vars.tf
+     │       └── gcp-out.tf
+     └── ansible/
+         ├── site.yml
+         ├── ansible.cfg
+         ├── inventory.yml       # gitignored - generated by tofu
+         ├── group_vars/
+         │   └── all.yml
+         └── roles/
+             ├── web/
+             │   ├── tasks/
+             │   │   └── main.yml
+             │   └── templates/
+             │       ├── nginx.conf1.j2
+             │       └── nginx.conf2.j2
+             ├── app/
+             │   ├── tasks/
+             │   │   └── main.yml
+             │   └── templates/
+             │       └── wp-config.php.j2
+             └── db/
+                  └── tasks/
+                     └── main.yml
+```
 
 ---
 
-# 5. Deployment Workflow
+# 5 Deployment Workflow
 
-For each provider:
+The deployment process follows a consistent workflow regardless of the target provider.
 
-1. Run OpenTofu to provision infrastructure  
-2. Capture outputs (IP addresses, hostnames)  
-3. Generate Ansible inventory  
-4. Run Ansible playbooks  
-5. Validate application via DNS endpoint  
+1. Run OpenTofu to provision infrastructure
+2. Select the desired cloud provider
+3. OpenTofu waits for SSH availability
+4. Ansible is automatically invoked to configure the servers
+5. The WordPress site becomes available at the configured DNS endpoint
 
-The workflow remains identical across providers.
+If the provider configuration changes, OpenTofu replaces the existing infrastructure with an equivalent deployment in the new provider.
 
 ---
 
@@ -327,8 +387,6 @@ Reference documentation used during development:
 - [Azure CLI installation documentation](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-linux?view=azure-cli-latest&pivots=apt)
 - GCP provider documentation
 - [GCP CLI installation docs](https://docs.cloud.google.com/sdk/docs/install-sdk#deb)
-- Rocket.Chat installation documentation  
-- MongoDB installation documentation  
 
 ## 6.3 Setup
 ### OpenTofu
