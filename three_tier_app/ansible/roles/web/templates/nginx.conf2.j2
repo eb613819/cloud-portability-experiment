@@ -1,15 +1,15 @@
 server {
     listen 80;
-    server_name blog.evanbrooks.me;
+    server_name {{ wp_domain }};
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl;
-    server_name blog.evanbrooks.me;
+    server_name {{ wp_domain }};
 
-    ssl_certificate /etc/letsencrypt/live/blog.evanbrooks.me/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/blog.evanbrooks.me/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/{{ wp_domain }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ wp_domain }}/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 

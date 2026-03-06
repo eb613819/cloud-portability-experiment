@@ -95,7 +95,7 @@
 - name: Install WordPress
   command: >
     wp core install
-    --url="https://blog.evanbrooks.me"
+    --url="{{ wp_url }}"
     --title="{{ wp_site_title }}"
     --admin_user="{{ wp_admin_user }}"
     --admin_password="{{ wp_admin_password }}"
@@ -104,3 +104,35 @@
     --allow-root
     --path=/var/www/wordpress
   become: yes
+
+- name: Delete default post
+  command: >
+    wp post delete 1
+    --force
+    --allow-root
+    --path=/var/www/wordpress
+  ignore_errors: yes
+
+- name: Delete default page
+  command: >
+    wp post delete 2
+    --force
+    --allow-root
+    --path=/var/www/wordpress
+  ignore_errors: yes
+
+- name: Create welcome post
+  command: >
+    wp post create
+    --post_title="Welcome to My Blog"
+    --post_content="This is my first post."
+    --post_status=publish
+    --allow-root
+    --path=/var/www/wordpress
+  args:
+    creates: /var/www/wordpress/.post_created
+
+- name: Mark post as created
+  file:
+    path: /var/www/wordpress/.post_created
+    state: touch

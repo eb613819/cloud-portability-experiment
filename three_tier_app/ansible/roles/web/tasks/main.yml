@@ -28,7 +28,7 @@
     state: restarted
 
 - name: Wait for DNS propagation
-  command: dig +short blog.evanbrooks.me
+  command: dig +short {{ wp_domain }}
   register: dns_result
   until: dns_result.stdout == hostvars[groups['web_group'][0]]['ansible_host']
   retries: 30
@@ -45,10 +45,10 @@
 - name: Obtain SSL certificate
   command: >
     certbot --nginx
-    -d blog.evanbrooks.me
+    -d {{ wp_domain }}
     --non-interactive
     --agree-tos
-    --email admin@evanbrooks.me
+    --email {{ certbot_email }}
     --redirect
   args:
     creates: /etc/letsencrypt/live/blog.evanbrooks.me/fullchain.pem

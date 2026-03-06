@@ -1,6 +1,6 @@
 server {
     listen 80;
-    server_name blog.evanbrooks.me;
+    server_name {{  wp_domain }};
     location / {
         proxy_pass http://{{ hostvars[groups['app_group'][0]]['ansible_host'] }}:80;
         proxy_set_header Host $host;

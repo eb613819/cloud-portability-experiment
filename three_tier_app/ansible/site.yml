@@ -1,0 +1,13 @@
+- hosts: db_group:app_group
+  become: true
+  gather_facts: false
+
+  roles:
+    - { role: db,  when: "'db_group' in group_names" }
+    - { role: app, when: "'app_group' in group_names" }
+
+- hosts: web_group
+  become: true
+  gather_facts: false
+  roles:
+    - web

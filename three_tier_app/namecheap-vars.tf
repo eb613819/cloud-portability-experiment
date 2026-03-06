@@ -12,3 +12,7 @@ variable "namecheap_client_ip" {
   type        = string
   description = "Your whitelisted IP for Namecheap API access"
 }
+
+variable "wordpress_domain" {
+    type    = string
+}
