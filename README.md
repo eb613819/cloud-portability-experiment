@@ -7,7 +7,7 @@ This project explores cloud portability and vendor lock-in by deploying identica
 
 # Table of Contents
 
-1. [Overview](#1-overview)
+- 1. [Overview](#1-overview)
   - [1.1 Project Goals](#11-project-goals)
   - [1.2 Non-Goals](#12-non-goals)
   - [1.3 Future Work](#13-future-work)
