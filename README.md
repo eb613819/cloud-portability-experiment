@@ -115,7 +115,7 @@ Switching providers should require modifying configuration values, not rewriting
 ### Secondary Goals
 
 - Maintain strict separation between provisioning and configuration  
-- Automatically assign DNS subdomains under `evanbrooks.me`  
+- Automatically assign DNS subdomains under `evanbrooks.me` using the **Namecheap API**, pointing the configured subdomain at the active deployment's public IP  
 - Keep each deployment architecturally identical  
 - Build a strong multi-cloud portfolio project  
 
@@ -271,20 +271,41 @@ OpenTofu automatically creates DNS A records pointing to the appropriate fronten
 
 ## 3.5 Architecture Diagram
 ```
-           +-------------------+
-           |   evanbrooks.me   |
-           +-------------------+
-                    |
-                Active Deployment
-                    |
-          ------------------------
-          |          |           |
-        Web        App        Database
-        (VM)       (VM)        (VM)
+                       Internet
+                           |
+                    HTTPS (443) / HTTP (80)
+                           |
+                    +------+------+
+                    |   Web VM    |
+                    |   (Nginx)   |
+                    | TLS termination
+                    | Reverse proxy|
+                    | SSH jump host|
+                    +------+------+
+                           |
+                    HTTP (80) - internal
+                           |
+                    +------+------+
+                    |   App VM    |
+                    | PHP-FPM     |
+                    | WordPress   |
+                    +------+------+
+                           |
+                    MySQL (3306) - internal
+                           |
+                    +------+------+
+                    |    DB VM    |
+                    |  MariaDB    |
+                    +-------------+
 
-      Infrastructure provisioned in:
-      AWS  |  Azure  |  GCP
-      (selected at deployment time)
+Administrative SSH access:
+  Local → Web VM (public IP, port 22)
+  Local → App VM (via Web VM jump host)
+  Local → DB VM  (via Web VM jump host)
+
+Infrastructure provisioned in:
+  AWS | Azure | GCP
+  (one provider active at a time)
 ```
 
 ---
@@ -349,17 +370,20 @@ cloud-portability-experiment/
 
 ---
 
-# 5 Deployment Workflow
-
+# 5. Deployment Workflow
 The deployment process follows a consistent workflow regardless of the target provider.
+1. Select the desired cloud provider via the `platform` variable
+2. Run `tofu apply` to provision infrastructure
+3. OpenTofu generates the Ansible inventory from provisioned IP addresses
+4. OpenTofu updates the DNS A record via the Namecheap API, pointing the configured subdomain at the web VM's public IP
+5. OpenTofu waits for SSH availability on all three VMs
+6. Ansible is automatically invoked to configure the servers:
+   - MariaDB installed and configured on the database tier
+   - PHP-FPM and WordPress installed on the application tier
+   - Nginx installed, reverse proxy configured, and TLS certificate obtained from Let's Encrypt on the web tier
+7. The WordPress site becomes available at the configured DNS endpoint over HTTPS
 
-1. Run OpenTofu to provision infrastructure
-2. Select the desired cloud provider
-3. OpenTofu waits for SSH availability
-4. Ansible is automatically invoked to configure the servers
-5. The WordPress site becomes available at the configured DNS endpoint
-
-If the provider configuration changes, OpenTofu replaces the existing infrastructure with an equivalent deployment in the new provider.
+If the provider configuration changes, OpenTofu replaces the existing infrastructure with an equivalent deployment in the new provider and reruns all subsequent steps automatically.
 
 ---
 
@@ -1012,7 +1036,7 @@ DB VM (private)
 **Application Tier**
 - No public IP
 - Allowed SSH only from the private subnet
-- Allowed application traffic (Ghost: 2368) from the private subnet
+- Allowed application traffic (HTTP: 80) from the private subnet
 
 **Database Tier**
 - No public IP
@@ -1131,7 +1155,7 @@ Each provider module provisions:
 The root module exposes consistent outputs regardless of platform:
 - `web_public_ip`
 - `app_private_ip`
-` `db_private_ip`
+- `db_private_ip`
 This ensures that downstream tooling (e.g., Ansible) does not need to know which cloud is active.
 
 ## 10.2 Directory Structure
@@ -1343,7 +1367,7 @@ Templates are used to dynamically generate configuration files based on variable
 ## 11.3 Playbook Execution
 The deployment is orchestrated through a single Ansible playbook:
 ```bash
-site.yaml
+site.yml
 ```
 Database and application roles execute **in parallel**, while the web tier is configured afterward.
 ```yaml
@@ -1364,7 +1388,34 @@ This execution model allows:
 - Database and application installation to occur simultaneously
 - Web tier configuration to occur after backend services are available
 
-## 11.4 Transition to Automated Deployment
+## 11.4 Ansible Performance Optimizations
+To reduce playbook execution time, the Ansible configuration was tuned using `ansible.cfg`.
+```ini
+[defaults]
+inventory = inventory.yml
+forks = 50
+host_key_checking = False
+gathering = smart
+fact_caching = jsonfile
+fact_caching_connection = ~/.ansible/facts
+fact_caching_timeout = 3600
+pipelining = True
+strategy = free
+timeout = 30
+callbacks_enabled = profile_tasks
+
+[ssh_connection]
+pipelining = True
+ssh_args = -o ControlMaster=auto -o ControlPersist=10m -o StrictHostKeyChecking=no -o ForwardAgent=yes
+ControlPath=/tmp/ansible-%%r@%%h:%%p
+```
+Key optimisations applied:
+- **SSH connection reuse** (`ControlMaster`, `ControlPersist`) — by default, Ansible opens a new SSH connection for every task. With connection multiplexing enabled, the initial connection is reused across all tasks on a host, significantly reducing overhead — particularly noticeable when routing through a ProxyJump bastion host.
+- **Pipelining** — batches multiple SSH operations together rather than issuing them as separate round trips. Combined with connection reuse, this produces a meaningful reduction in total playbook runtime.
+- **Fact caching** — Ansible's setup module gathers system facts at the start of each play. With `gathering = smart` and `fact_caching = jsonfile`, facts are cached to disk and reused on subsequent runs, skipping the gathering phase entirely if the cache is still valid.
+- **ForwardAgent** — required to allow SSH agent forwarding through the web VM jump host to the application and database VMs. Without this, Ansible cannot authenticate onward from the bastion.
+
+## 11.5 Transition to Automated Deployment
 At this stage, the infrastructure layer (OpenTofu) and configuration layer (Ansible) are fully functional but still operate as separate steps.
 
 The final phase of the project integrates both layers into a **single automated deployment pipeline**, where infrastructure provisioning, configuration management, DNS configuration, and application deployment occur as part of the same workflow.
@@ -1390,12 +1441,16 @@ The infrastructure modules expose the following normalized outputs:
 These values are used to construct the Ansible inventory file automatically. This approach removes the need for manual inventory management and ensures that configuration management always targets the correct infrastructure resources. It also allows the same Ansible configuration to operate across multiple cloud providers without modification.
 
 ## 12.2 SSH Availability Checks
-Newly provisioned virtual machines may take several seconds to complete their initialization and begin accepting SSH connections.
-To prevent configuration tasks from executing before hosts are ready, the OpenTofu configuration includes logic in `ssh.tf` to wait for SSH availability.
-This step ensures that:
-- Virtual machines have completed initialization
-- SSH services are active
-- Configuration management can proceed reliably
+Newly provisioned virtual machines require time to complete OS initialisation before accepting SSH connections. If Ansible is invoked immediately after `tofu apply`, connection attempts to hosts that are not yet ready will fail.
+
+To handle this, `ssh.tf` defines three `null_resource` blocks that each open a real SSH connection to their respective host before proceeding:
+```
+wait_for_ssh_web  →  connects to web VM (public IP)
+wait_for_ssh_app  →  connects to app VM (via jump host)
+wait_for_ssh_db   →  connects to db VM  (via jump host)
+```
+The web check runs first since the application and database VMs are only reachable through it. Once the web VM is confirmed ready, the application and database checks run in parallel. Ansible is only invoked once all three checks pass.
+Each check uses a 5-minute timeout, allowing sufficient time for slow VM initialisation across all three providers.
 
 ## 12.3 DNS Configuration
 The deployment pipeline also automates DNS configuration using the Namecheap API. Namecheap variables are declared in `namecheap-vars.tf`. A
