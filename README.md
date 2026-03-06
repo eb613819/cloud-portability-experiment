@@ -108,6 +108,22 @@ Rather than running all deployments simultaneously, the project maintains **a si
 
 This approach allows the same infrastructure and configuration code to be reused across providers while avoiding the cost and complexity of maintaining multiple concurrent environments.
 
+### What It Does
+
+A single `tofu apply` command:
+1. Provisions three virtual machines in the selected cloud provider (AWS, Azure, or GCP)
+2. Configures networking, firewall rules, and IP allocation
+3. Creates a DNS A record for the configured subdomain under `evanbrooks.me` via the Namecheap API
+4. Waits for SSH availability across all three VMs
+5. Installs and configures **MariaDB** on the database tier
+6. Installs **PHP-FPM**, **WordPress**, and **WP-CLI** on the application tier
+7. Installs **Nginx**, obtains a **TLS certificate from Let's Encrypt**, and configures HTTPS with HTTP redirect on the web tier
+8. Publishes the repository README as the first WordPress post, converted to HTML via Pandoc
+9. Outputs the live URL: `https://<configured-subdomain>`
+
+Switching providers re-runs the entire pipeline automatically in the new cloud environment.
+
+### Research Question
 The central question explored is:
 
 > Can the same infrastructure and configuration code deploy identical application stacks across multiple cloud providers with minimal changes?
