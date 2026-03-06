@@ -7,57 +7,64 @@ This project explores cloud portability and vendor lock-in by deploying identica
 
 # Table of Contents
 
- 1. [Overview](#1-overview)
-    - [1.1 Project Goals](#11-project-goals)
-    - [1.2 Non-Goals](#12-non-goals)
-    - [1.3 Future Work](#13-future-work)
+1. [Overview](#1-overview)
+   - [1.1 Project Goals](#11-project-goals)
+   - [1.2 Non-Goals](#12-non-goals)
+   - [1.3 Future Work](#13-future-work)
 
 2. [Tooling](#2-tooling)
-    - [2.1 Infrastructure Provisioning](#21-infrastructure-provisioning)
-    - [2.2 Configuration Management](#22-configuration-management)
-    - [2.3 Chosen Application](#23-chosen-application)
+   - [2.1 Infrastructure Provisioning](#21-infrastructure-provisioning)
+   - [2.2 Configuration Management](#22-configuration-management)
+   - [2.3 Chosen Application](#23-chosen-application)
 
 3. [Architecture](#3-architecture)
-    - [3.1 High-Level Design](#31-high-level-design)
-    - [3.2 Multi-Cloud Strategy](#32-multi-cloud-strategy)
-    - [3.3 3-Tier Breakdown](#33-3-tier-breakdown)
-    - [3.4 DNS Design](#34-dns-design)
-    - [3.5 Architecture Diagram](#35-architecture-diagram)
+   - [3.1 High-Level Design](#31-high-level-design)
+   - [3.2 Multi-Cloud Strategy](#32-multi-cloud-strategy)
+   - [3.3 3-Tier Breakdown](#33-3-tier-breakdown)
+   - [3.4 DNS Design](#34-dns-design)
+   - [3.5 Architecture Diagram](#35-architecture-diagram)
 
 4. [Repository Structure](#4-repository-structure)
 
 5. [Deployment Workflow](#5-deployment-workflow)
 
 6. [Development](#6-development)
-    - [6.1 Development Environment](#61-development-environment)
-    - [6.2 Development Reference Documentation](#62-development-reference-documentation)
-    - [6.3 Setup](#63-setup)
-      - [OpenTofu](#opentofu)
-      - [Ansible](#ansible)
-      - [SSH Key](#ssh-key)
-      - [Azure](#azure)
-      - [Google Cloud](#google-cloud)
-      - [Amazon Web Services](#amazon-web-services)
+   - [6.1 Development Environment](#61-development-environment)
+   - [6.2 Development Reference Documentation](#62-development-reference-documentation)
+   - [6.3 Setup](#63-setup)
+     - [OpenTofu](#opentofu)
+     - [Ansible](#ansible)
+     - [SSH Key](#ssh-key)
+     - [Azure](#azure)
+     - [Google Cloud](#google-cloud)
+     - [Amazon Web Services](#amazon-web-services)
 
 7. [Provider-Native Single VM Deployment (No Abstraction)](#7-provider-native-single-vm-deployment-no-abstraction)
-    - [7.1 Directory Structure](#71-directory-structure)
-    - [7.2 Provider Configuration](#72-provider-configuration)
-    - [7.3 Networking Layer](#73-networking-layer)
-    - [7.4 Public IP Allocation](#74-public-ip-allocation)
-    - [7.5 Security Model (SSH Access)](#75-security-model-ssh-access)
-    - [7.6 SSH Key Injection](#76-ssh-key-injection)
-    - [7.7 Virtual Machine Resource](#77-virtual-machine-resource)
-    - [7.8 Deployment Lifecycle](#78-deployment-lifecycle-identical-across-providers)
-    - [7.9 Comparative Observations](#79-comparative-observations)
+   - [7.1 Directory Structure](#71-directory-structure)
+   - [7.2 Provider Configuration](#72-provider-configuration)
+   - [7.3 Networking Layer](#73-networking-layer)
+   - [7.4 Public IP Allocation](#74-public-ip-allocation)
+   - [7.5 Security Model (SSH Access)](#75-security-model-ssh-access)
+   - [7.6 SSH Key Injection](#76-ssh-key-injection)
+   - [7.7 Virtual Machine Resource](#77-virtual-machine-resource)
+   - [7.8 Deployment Lifecycle](#78-deployment-lifecycle-identical-across-providers)
+   - [7.9 Comparative Observations](#79-comparative-observations)
 
 8. [Cloud-Agnostic Deployment of a Single VM](#8-cloud-agnostic-deployment-of-a-single-vm)
-    - [8.1 Motivation for a Unified Interface](#81-motivation-for-a-unified-interface)
-    - [8.2 Directory Structure](#82-directory-structure)
-    - [8.3 Portable Interface](#83-portable-interface)
-    - [8.4 Provider-specific Modules](#84-provider-specific-modules)
-    - [8.5 Deployment Lifecycle](#85-deployment-lifecycle)
+   - [8.1 Motivation for a Unified Interface](#81-motivation-for-a-unified-interface)
+   - [8.2 Directory Structure](#82-directory-structure)
+   - [8.3 Portable Interface](#83-portable-interface)
+   - [8.4 Provider-Specific Modules](#84-provider-specific-modules)
+   - [8.5 Deployment Lifecycle](#85-deployment-lifecycle)
+   - [8.6 Reflections](#86-reflections)
 
-9. [Extending the Architecture to Three Tiers](#9-extending-the-architecture-to-three-tiers)
+9. [Provider-Native Three VM Deployment (No Abstraction)](#9-provider-native-three-vm-deployment-no-abstraction)
+   - [9.1 Directory Structure](#91-directory-structure)
+   - [9.2 Three-Tier Architecture Pattern](#92-three-tier-architecture-pattern)
+   - [9.3 SSH Access Model](#93-ssh-access-model)
+   - [9.4 Validation and Testing](#94-validation-and-testing)
+   - [9.5 Rationale for Delaying Abstraction](#95-rationale-for-delaying-abstraction)
+   - [9.6 Deployment Lifecycle](#96-deployment-lifecycle-identical-across-providers)
 
 10. [Cloud-Agnostic Three VM Deployment](#10-cloud-agnostic-three-vm-deployment)
     - [10.1 Architectural Approach](#101-architectural-approach)
@@ -66,18 +73,26 @@ This project explores cloud portability and vendor lock-in by deploying identica
     - [10.4 Design Benefits](#104-design-benefits)
     - [10.5 Transition to Configuration Management](#105-transition-to-configuration-management)
 
-11. [Automated Application Deployment with Ansible](#11-automated-application-deployment-with-ansible)
-    - [11.1 Network Access Model](#111-network-access-model)
-    - [11.2 Ansible Role Structure](#112-ansible-role-structure)
-    - [11.3 Dynamic Inventory Generation](#113-dynamic-inventory-generation)
-    - [11.4 Playbook Execution](#114-playbook-execution)
-    - [11.5 Resulting Application Deployment](#115-resulting-application-deployment)
+11. [Configuration Management and Application Deployment](#11-configuration-management-and-application-deployment)
+    - [11.1 Architecture](#111-architecture)
+    - [11.2 Ansible Directory Structure](#112-ansible-directory-structure)
+    - [11.3 Playbook Execution](#113-playbook-execution)
+    - [11.4 Ansible Performance Optimizations](#114-ansible-performance-optimizations)
+    - [11.5 Transition to Automated Deployment](#115-transition-to-automated-deployment)
 
-12. [Integrated Provisioning and Configuration Workflow](#12-integrated-provisioning-and-configuration-workflow)
-    - [12.1 Orchestrating the Full Deployment](#121-orchestrating-the-full-deployment)
-    - [12.2 Waiting for Infrastructure Readiness](#122-waiting-for-infrastructure-readiness)
-    - [12.3 Automatic Ansible Invocation](#123-automatic-ansible-invocation)
-    - [12.4 End-to-End Deployment Lifecycle](#124-end-to-end-deployment-lifecycle)
+12. [End-to-End Automated Deployment Pipeline](#12-end-to-end-automated-deployment-pipeline)
+    - [12.1 Automated Inventory Generation](#121-automated-inventory-generation)
+    - [12.2 SSH Availability Checks](#122-ssh-availability-checks)
+    - [12.3 Re-provisioning on Provider Change](#123-re-provisioning-on-provider-change)
+    - [12.4 DNS Configuration](#124-dns-configuration)
+    - [12.5 Ansible Performance Optimisations](#125-ansible-performance-optimisations)
+    - [12.6 Parallel Provisioning](#126-parallel-provisioning)
+    - [12.7 Ansible Execution](#127-ansible-execution)
+    - [12.8 TLS Certificate Provisioning](#128-tls-certificate-provisioning)
+    - [12.9 Directory Structure](#129-directory-structure)
+    - [12.10 Deployment Workflow](#1210-deployment-workflow)
+    - [12.11 Reflections](#1211-reflections)
+    - [12.12 Project Outcome](#1212-project-outcome)
     
 ---
 
@@ -1450,27 +1465,115 @@ wait_for_ssh_app  →  connects to app VM (via jump host)
 wait_for_ssh_db   →  connects to db VM  (via jump host)
 ```
 The web check runs first since the application and database VMs are only reachable through it. Once the web VM is confirmed ready, the application and database checks run in parallel. Ansible is only invoked once all three checks pass.
+
 Each check uses a 5-minute timeout, allowing sufficient time for slow VM initialisation across all three providers.
 
-## 12.3 DNS Configuration
-The deployment pipeline also automates DNS configuration using the Namecheap API. Namecheap variables are declared in `namecheap-vars.tf`. A
-`namecheap.auto.tfvars` file must exist locally to provide the required credentials and domain configuration values. The domain configured in `ansible/group_vars/all.yml` must also match
-the DNS configuration.
-During deployment:
-- The web server’s public IP address is retrieved from OpenTofu outputs
-- A DNS record is created or updated for the configured domain
-- The record points the domain to the web server
-This step ensures that the application becomes accessible via a domain name immediately after deployment.
+## 12.3 Re-provisioning on Provider Change
 
-## 12.4 Ansible Execution
+A key requirement of the pipeline is that switching cloud providers triggers a full re-provisioning cycle — not just infrastructure replacement, but also DNS updates, SSH checks, and Ansible re-execution.
+
+OpenTofu `null_resource` blocks only re-run their provisioners when the resource itself is destroyed and recreated. To force this behaviour on provider or IP changes, each `null_resource` declares explicit triggers:
+```hcl
+resource "null_resource" "ansible" {
+  triggers = {
+    platform = var.platform
+    web_ip   = local.web_public_ip
+  }
+  ...
+}
+```
+
+When the `platform` variable changes or the web VM's public IP changes (indicating new infrastructure), OpenTofu detects the trigger value difference, marks the resource for replacement, and reruns the provisioner. This ensures that switching from AWS to GCP, for example, results in a complete end-to-end deployment in the new provider rather than leaving stale configuration in place.
+
+## 12.4 DNS Configuration
+The deployment pipeline automates DNS configuration using the Namecheap API. Namecheap variables are declared in `namecheap-vars.tf`. A `namecheap.auto.tfvars` file must exist locally to provide the required credentials and domain configuration values. The domain configured in `ansible/group_vars/all.yml` must also match the DNS configuration.
+
+During deployment:
+- The web server's public IP address is retrieved from OpenTofu outputs
+- A DNS A record is created or updated for the configured subdomain
+- The record points the subdomain to the web VM's public IP
+
+The DNS resource is triggered as early as possible in the pipeline — before SSH checks and before Ansible — to maximise the time available for DNS propagation before Certbot attempts domain validation.
+
+## 12.5 Ansible Performance Optimisations
+
+To reduce playbook execution time, the Ansible configuration was tuned using `ansible.cfg`.
+```ini
+[defaults]
+inventory = inventory.yml
+forks = 10
+host_key_checking = False
+gathering = smart
+fact_caching = jsonfile
+fact_caching_connection = /tmp/ansible_facts
+fact_caching_timeout = 3600
+
+[ssh_connection]
+pipelining = True
+ssh_args = -o ControlMaster=auto -o ControlPersist=60s -o StrictHostKeyChecking=no -o ForwardAgent=yes
+control_path = /tmp/ansible-ssh-%%h-%%p-%%r
+```
+
+Key optimisations applied:
+
+**SSH connection reuse** (`ControlMaster`, `ControlPersist`) — by default, Ansible opens a new SSH connection for every task. With connection multiplexing enabled, the initial connection is reused across all tasks on a host, significantly reducing overhead — particularly noticeable when routing through a ProxyJump bastion host.
+
+**Pipelining** — batches multiple SSH operations together rather than issuing them as separate round trips. Combined with connection reuse, this produces a meaningful reduction in total playbook runtime.
+
+**Fact caching** — Ansible's setup module gathers system facts at the start of each play. With `gathering = smart` and `fact_caching = jsonfile`, facts are cached to disk and reused on subsequent runs, skipping the gathering phase entirely if the cache is still valid.
+
+**ForwardAgent** — required to allow SSH agent forwarding through the web VM jump host to the application and database VMs. Without this, Ansible cannot authenticate onward from the bastion.
+
+## 12.6 Parallel Provisioning
+
+To reduce total deployment time, the database and application tiers are provisioned in parallel. Since neither depends on the other, running them sequentially wastes time.
+
+This is achieved in `site.yml` by combining both host groups into a single play:
+```yaml
+- hosts: db_group:app_group
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Run db role
+      include_role:
+        name: db
+      when: inventory_hostname in groups['db_group']
+
+    - name: Run app role
+      include_role:
+        name: app
+      when: inventory_hostname in groups['app_group']
+```
+
+With `forks = 10` set in `ansible.cfg`, Ansible executes tasks against both hosts simultaneously. The web tier is configured in a separate subsequent play, ensuring it only runs after the backend services are ready.
+
+## 12.7 Ansible Execution
 Once infrastructure provisioning, SSH availability checks, and DNS configuration are complete, OpenTofu invokes the Ansible playbook responsible for installing and configuring the application stack using `ansible.tf`.
+
 The Ansible execution performs the following tasks:
 - Install and configure **MariaDB** on the database server
 - Install **PHP-FPM and WordPress** on the application server
 - Configure **Nginx reverse proxy and TLS** on the web server
+
 This process installs the full application stack without requiring manual intervention.
 
-## 12.5 Directory Structure
+## 12.8 TLS Certificate Provisioning
+
+TLS certificates are obtained automatically from **Let's Encrypt** using Certbot during the web role execution.
+
+The provisioning sequence within the web role is:
+
+1. Deploy an initial HTTP-only Nginx configuration with the correct `server_name` directive
+2. Start Nginx so that HTTP traffic is served and Let's Encrypt can perform domain validation
+3. Wait for DNS propagation — poll `dig` until the configured subdomain resolves to the web VM's public IP
+4. Run Certbot, which performs HTTP-01 validation and installs the certificate
+5. Deploy the final Nginx configuration with TLS, HTTP-to-HTTPS redirect, and reverse proxy rules
+
+The two-stage Nginx configuration is necessary because Certbot requires a running HTTP server to complete domain validation, but the final HTTPS configuration references certificate files that do not exist until Certbot has run.
+
+**Let's Encrypt rate limiting** presented a practical constraint during development. Let's Encrypt enforces a limit of 5 certificates per exact domain per week. During iterative testing across multiple providers, this limit was reached for the configured subdomain. The workaround was to use Certbot's staging environment via the `--test-cert` flag during development, which issues certificates from a non-trusted CA but has significantly higher rate limits. The `--test-cert` flag is removed for production deployments.
+
+## 12.9 Directory Structure
 The structure of the project directory is as follows:
 ```bash
 three-tier-app/ 
@@ -1526,30 +1629,44 @@ three-tier-app/
                 └── main.yml
 ```
 
-## 12.6 Deployment Workflow
+## 12.10 Deployment Workflow
 The resulting deployment lifecycle is:
-```bash
+```
 tofu apply
    │
    ├── Provision infrastructure (AWS / Azure / GCP)
    ├── Allocate public and private IP addresses
    ├── Generate Ansible inventory
-   ├── Wait for SSH availability
-   ├── Configure DNS records
+   ├── Configure DNS records (Namecheap API)
+   ├── Wait for SSH availability on all three VMs
    ├── Execute Ansible playbook
-   │      ├── Install MariaDB
-   │      ├── Install WordPress + PHP
-   │      └── Configure Nginx reverse proxy and TLS
-   └── Deployment complete
+   │      ├── Install MariaDB (db tier)
+   │      ├── Install WordPress + PHP (app tier)  ← runs in parallel
+   │      └── Configure Nginx + obtain TLS cert (web tier)
+   └── Output: https://<configured-subdomain>
 ```
-After the process completes, the WordPress application is accessible via the configured domain name.
+After the process completes, the WordPress application is accessible via the configured domain name over HTTPS.
 
-## 12.7 Project Outcome
+## 12.11 Reflections
+
+Integrating OpenTofu and Ansible into a single pipeline surfaced several challenges that are not apparent when the two tools are operated independently.
+
+**Timing and ordering** proved to be the most persistent source of failures. Infrastructure provisioning and VM initialisation do not complete atomically. VMs may be registered in the provider's API before SSH is available, and DNS propagation introduces additional non-deterministic delay. Explicit readiness checks for each stage were necessary to make the pipeline reliable.
+
+**State and re-execution** in OpenTofu's `null_resource` model required understanding how triggers interact with provisioner lifecycle. Without explicit triggers tied to meaningful values, switching providers would leave stale provisioners in place and skip Ansible re-execution entirely.
+
+**External service constraints** introduced real-world complexity not present in purely local development. Let's Encrypt rate limiting, DNS propagation delay, and SSH agent forwarding through a jump host each required specific handling that would not be obvious from documentation alone.
+
+Despite these challenges, the resulting pipeline achieves the original goal: a single `tofu apply` command provisions infrastructure in the selected cloud provider, configures DNS, installs the full application stack, and delivers a working WordPress site over HTTPS — with no manual steps required.
+
+## 12.12 Project Outcome
 The final system demonstrates a **fully automated, cloud-agnostic application deployment pipeline**.
 Key characteristics include:
 - Infrastructure provisioning through **OpenTofu**
 - Configuration management through **Ansible**
 - Cloud abstraction across **AWS, Azure, and GCP**
-- Automated DNS configuration
+- Automated DNS configuration via the Namecheap API
+- TLS certificates via Let's Encrypt
 - End-to-end deployment from a single command
-The platform can now deploy an identical three-tier WordPress application stack across multiple cloud providers with minimal modification, demonstrating the effectiveness of **infrastructure-as-code and configuration management integration**.
+
+The platform deploys an identical three-tier WordPress application stack across multiple cloud providers with minimal modification, demonstrating the effectiveness of infrastructure-as-code and configuration management working together as a unified pipeline.
