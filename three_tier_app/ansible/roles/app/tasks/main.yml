@@ -11,6 +11,7 @@
       - unzip
       - curl
       - nginx
+      - pandoc
     state: present
     update_cache: yes
 
@@ -121,12 +122,20 @@
     --path=/var/www/wordpress
   ignore_errors: yes
 
-- name: Create welcome post
+- name: Copy README to server
+  copy:
+    src: ../../../../../README.md
+    dest: /tmp/README.md
+
+- name: Convert README to HTML
+  command: pandoc -f markdown -t html /tmp/README.md -o /tmp/README.html
+
+- name: Create welcome post from README
   command: >
-    wp post create
-    --post_title="Welcome to My Blog"
-    --post_content="This is my first post."
+    wp post create /tmp/README.html
+    --post_title="Cloud Portability Experiment"
     --post_status=publish
+    --post_format=standard
     --allow-root
     --path=/var/www/wordpress
   args:
